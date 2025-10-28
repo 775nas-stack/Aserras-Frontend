@@ -67,33 +67,11 @@ scripts — ships with the repository so nothing is lost on future redeploys.
 sudo bash deploy/setup.sh
 ```
 
-The script performs the following idempotent actions:
-
-1. Creates `.venv/` if it does not exist and installs `requirements.txt`.
-2. Ensures `/var/log/aserras/` exists with permissions for the service user.
-3. Copies `deploy/aserras-frontend.service` into
-   `/etc/systemd/system/aserras-frontend.service`, preserving an on-server copy
-   if it already differs, then enables and starts the service.
-4. Publishes the nginx site definition at
-   `/etc/nginx/sites-available/aserras.com.conf`, symlinks it into
-   `sites-enabled/`, validates the configuration, and reloads nginx.
-
-The service and nginx manifests are rewritten on the fly to match the current
-repository path (or an overridden `APP_ROOT`) so recloning into a different
-directory never breaks the runtime configuration.
-
-All operations are safe to re-run. Existing, modified service definitions are
-backed up with a `.bak` suffix so manual overrides are never lost.
-
-Environment specific overrides can be supplied by exporting variables when
-invoking the script:
-
-```bash
-sudo APP_USER=ubuntu APP_PORT=9000 bash deploy/setup.sh
-```
-
-`APP_ROOT` defaults to the path you run the script from, keeping the systemd
-unit aligned with the actual clone.
+The setup helper performs a clean clone into `/var/www/`, provisions a fresh
+virtual environment, installs `requirements.txt`, and ensures the
+`aserras-frontend` systemd unit is enabled and running. Because it always
+targets the canonical clone path, running it on a freshly provisioned host
+results in the same layout and permissions every time.
 
 ### Updating a running deployment
 
@@ -103,19 +81,21 @@ After pulling new application code:
 sudo bash deploy/reload.sh
 ```
 
-This reloads the systemd unit (in case the service file changed), restarts the
-FastAPI process, and prints the latest status for quick verification.
+This helper fetches the latest `origin/main`, force-syncs the working tree,
+rebuilds the `.venv`, and restarts the FastAPI service so new code and
+dependencies land atomically.
 
 ### nginx + systemd assets
 
-* `deploy/aserras-frontend.service` – runs Uvicorn from the repo’s `.venv`,
-  binds to port 8080, writes logs to `/var/log/aserras/`, and loads any secrets
-  from `.env`.
-* `deploy/nginx/aserras.com.conf` – proxies application traffic to Uvicorn and
+* `deploy/systemd/aserras-frontend.service` – runs Uvicorn from the repo’s
+  `.venv`, binds to port 8080, writes logs to `/var/log/aserras/`, and loads any
+  secrets from `.env`.
+* `deploy/nginx/aserras.com` – proxies application traffic to Uvicorn and
   serves `/static/` directly for maximal performance.
-* `deploy/setup.sh` – idempotent bootstrapper to provision Python packages,
-  systemd, and nginx.
-* `deploy/reload.sh` – lightweight helper for restarts during updates.
+* `deploy/setup.sh` – one-shot bootstrapper for cloning, virtualenv creation,
+  dependency installation, and service enablement.
+* `deploy/reload.sh` – repeatable helper that syncs `origin/main`, rebuilds the
+  environment, and restarts the service.
 
 ## Tests
 

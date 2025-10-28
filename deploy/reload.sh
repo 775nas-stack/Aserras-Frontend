@@ -1,8 +1,19 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
+# === Aserras Frontend Auto-Reload Script ===
+cd /var/www/Aserras-Frontend || exit
 
-SERVICE_NAME="aserras-frontend.service"
+echo "→ Pulling latest changes from GitHub..."
+git fetch --all
+git reset --hard origin/main
 
-systemctl daemon-reload
-systemctl restart "${SERVICE_NAME}"
-systemctl status "${SERVICE_NAME}" --no-pager
+echo "→ Updating Python environment..."
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+deactivate
+
+echo "→ Restarting FastAPI service..."
+systemctl restart aserras-frontend
+
+echo "✅ Frontend reloaded successfully!"
