@@ -3,7 +3,7 @@
 from functools import lru_cache
 
 # NOTE: Using pydantic v2+; BaseSettings imported from pydantic_settings.
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -18,9 +18,10 @@ class Settings(BaseSettings):
     brain_api_content_policies: str = "https://brain.aserras.com/api/content/policies"
     brain_api_pricing: str = "https://brain.aserras.com/api/pricing"
 
-    class Config:
-        env_prefix = "ASERRAS_"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_prefix="ASERRAS_",
+        case_sensitive=False,
+    )
 
 
 @lru_cache()
