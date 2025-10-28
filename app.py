@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, status
@@ -80,105 +81,83 @@ def create_app(settings: Settings) -> FastAPI:
     templates = Jinja2Templates(directory=str(templates_dir))
     templates.env.globals["now"] = datetime.utcnow
 
+    def render(
+        template_name: str,
+        request: Request,
+        *,
+        status_code: int | None = None,
+        **context: Any,
+    ):
+        base_context: dict[str, Any] = {"settings": settings, **context}
+        base_context.setdefault("nav_active", None)
+
+        if status_code is None:
+            return templates.TemplateResponse(request, template_name, base_context)
+        return templates.TemplateResponse(
+            request,
+            template_name,
+            base_context,
+            status_code=status_code,
+        )
+
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         if exc.status_code == status.HTTP_404_NOT_FOUND:
-            return templates.TemplateResponse(
+            return render(
                 "404.html",
-                {
-                    "request": request,
-                    "page_title": "Not Found",
-                    "settings": settings,
-                    "nav_active": None,
-                },
+                request,
                 status_code=status.HTTP_404_NOT_FOUND,
+                page_title="Not Found",
             )
         if exc.status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
-            return templates.TemplateResponse(
+            return render(
                 "500.html",
-                {
-                    "request": request,
-                    "page_title": "Server error",
-                    "settings": settings,
-                    "nav_active": None,
-                },
+                request,
                 status_code=exc.status_code,
+                page_title="Server error",
             )
         return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception):
-        return templates.TemplateResponse(
+        return render(
             "500.html",
-            {
-                "request": request,
-                "page_title": "Server error",
-                "settings": settings,
-                "nav_active": None,
-            },
+            request,
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            page_title="Server error",
         )
+
+    @app.get("/health", include_in_schema=False)
+    async def health() -> dict[str, str]:
+        """Return a simple heartbeat for uptime checks."""
+
+        return {"status": "ok"}
 
     @app.get("/")
     async def index(request: Request):
-        return templates.TemplateResponse(
-            "index.html",
-            {
-                "request": request,
-                "page_title": "Home",
-                "settings": settings,
-                "nav_active": "home",
-            },
-        )
+        return render("index.html", request, page_title="Home", nav_active="home")
 
     @app.get("/about")
     async def about(request: Request):
-        return templates.TemplateResponse(
-            "about.html",
-            {
-                "request": request,
-                "page_title": "About",
-                "settings": settings,
-                "nav_active": "about",
-            },
-        )
+        return render("about.html", request, page_title="About", nav_active="about")
 
     @app.get("/contact")
     async def contact(request: Request):
-        return templates.TemplateResponse(
-            "contact.html",
-            {
-                "request": request,
-                "page_title": "Contact",
-                "settings": settings,
-                "nav_active": "contact",
-            },
-        )
+        return render("contact.html", request, page_title="Contact", nav_active="contact")
 
     @app.get("/chat")
     async def chat(request: Request):
-        return templates.TemplateResponse(
+        return render(
             "chat.html",
-            {
-                "request": request,
-                "page_title": "Chat",
-                "settings": settings,
-                "nav_active": "chat",
-                "user_name": "Visionary",
-            },
+            request,
+            page_title="Chat",
+            nav_active="chat",
+            user_name="Visionary",
         )
 
     @app.get("/pricing")
     async def pricing(request: Request):
-        return templates.TemplateResponse(
-            "pricing.html",
-            {
-                "request": request,
-                "page_title": "Pricing",
-                "settings": settings,
-                "nav_active": "pricing",
-            },
-        )
+        return render("pricing.html", request, page_title="Pricing", nav_active="pricing")
 
     @app.get("/robots.txt", include_in_schema=False)
     async def robots():
@@ -240,101 +219,51 @@ def create_app(settings: Settings) -> FastAPI:
 
         selected_plan = plans.get(plan.lower(), plans["pro"])
 
-        return templates.TemplateResponse(
+        return render(
             "checkout.html",
-            {
-                "request": request,
-                "page_title": "Checkout",
-                "settings": settings,
-                "nav_active": "pricing",
-                "selected_plan": selected_plan,
-            },
+            request,
+            page_title="Checkout",
+            nav_active="pricing",
+            selected_plan=selected_plan,
         )
 
     @app.get("/settings")
     async def settings_page(request: Request):
-        return templates.TemplateResponse(
-            "settings.html",
-            {
-                "request": request,
-                "page_title": "Settings",
-                "settings": settings,
-                "nav_active": "settings",
-            },
+        return render(
+            "settings.html", request, page_title="Settings", nav_active="settings"
         )
 
     @app.get("/login")
     async def login(request: Request):
-        return templates.TemplateResponse(
-            "login.html",
-            {
-                "request": request,
-                "page_title": "Login",
-                "settings": settings,
-                "nav_active": "login",
-            },
-        )
+        return render("login.html", request, page_title="Login", nav_active="login")
 
     @app.get("/signup")
     async def signup(request: Request):
-        return templates.TemplateResponse(
-            "signup.html",
-            {
-                "request": request,
-                "page_title": "Sign Up",
-                "settings": settings,
-                "nav_active": "signup",
-            },
-        )
+        return render("signup.html", request, page_title="Sign Up", nav_active="signup")
 
     @app.get("/forgot")
     async def forgot(request: Request):
-        return templates.TemplateResponse(
-            "forgot.html",
-            {
-                "request": request,
-                "page_title": "Reset password",
-                "settings": settings,
-                "nav_active": "login",
-            },
+        return render(
+            "forgot.html", request, page_title="Reset password", nav_active="login"
         )
 
     @app.get("/dashboard")
     async def dashboard(request: Request):
-        return templates.TemplateResponse(
+        return render(
             "dashboard.html",
-            {
-                "request": request,
-                "page_title": "Dashboard",
-                "settings": settings,
-                "nav_active": "dashboard",
-                "user_name": "Visionary Founder",
-            },
+            request,
+            page_title="Dashboard",
+            nav_active="dashboard",
+            user_name="Visionary Founder",
         )
 
     @app.get("/terms")
     async def terms(request: Request):
-        return templates.TemplateResponse(
-            "terms.html",
-            {
-                "request": request,
-                "page_title": "Terms",
-                "settings": settings,
-                "nav_active": None,
-            },
-        )
+        return render("terms.html", request, page_title="Terms")
 
     @app.get("/privacy")
     async def privacy(request: Request):
-        return templates.TemplateResponse(
-            "privacy.html",
-            {
-                "request": request,
-                "page_title": "Privacy",
-                "settings": settings,
-                "nav_active": None,
-            },
-        )
+        return render("privacy.html", request, page_title="Privacy")
 
     @app.post("/api/auth/login")
     async def api_login(payload: AuthRequest):
