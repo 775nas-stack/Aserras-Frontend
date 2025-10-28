@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero home-hero">
+  <div class="container hero-inner">
+    <div class="hero-copy" data-content-block="home-hero">
+      <h1 data-content-key="home-hero-title">Think, Create, and Build Faster — with Aserras.</h1>
+      <p class="hero-subtext" data-content-key="home-hero-subtext">
+        Your private, intelligent workspace for ideas, conversations, and creation.
+        Designed for clarity, speed, and complete control of your data.
+      </p>
+      <div class="hero-actions">
+        <a class="btn primary" href="/signup" data-content-key="home-hero-cta-primary">Start Now</a>
+        <a class="btn ghost" href="/pricing" data-content-key="home-hero-cta-secondary">View Plans</a>
+      </div>
+      <p class="hero-note" data-content-key="home-hero-note">Your ideas stay yours. Aserras is privacy-first by design.</p>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <div class="hero-backdrop"></div>
+      <div class="hero-orbit">
+        <span class="hero-orbit__ring"></span>
+        <span class="hero-orbit__node"></span>
+        <span class="hero-orbit__node"></span>
+        <span class="hero-orbit__node"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section feature-showcase" id="capabilities" data-content-block="home-features">
+  <div class="container section-header">
+    <h2 data-content-key="home-features-title">Everything you need to stay in flow</h2>
+    <p data-content-key="home-features-subtitle">Aserras keeps conversations, assets, and decisions together so you can focus on the work that matters.</p>
+  </div>
+  <div class="container feature-grid">
+    <article class="feature-card" data-content-slot="feature-chat">
+      <span class="feature-icon" aria-hidden="true"></span>
+      <h3 data-content-key="feature-chat-title">Chat Workflows</h3>
+      <p data-content-key="feature-chat-body">Converse naturally and stay organised. Every idea lives in your workspace.</p>
+    </article>
+    <article class="feature-card" data-content-slot="feature-storage">
+      <span class="feature-icon" aria-hidden="true"></span>
+      <h3 data-content-key="feature-storage-title">Smart Storage</h3>
+      <p data-content-key="feature-storage-body">Messages, notes, and documents are instantly accessible and always secure.</p>
+    </article>
+    <article class="feature-card" data-content-slot="feature-creators">
+      <span class="feature-icon" aria-hidden="true"></span>
+      <h3 data-content-key="feature-creators-title">Tools for Creators</h3>
+      <p data-content-key="feature-creators-body">Image, video, and code studios live inside your workspace — all in one elegant place.</p>
+    </article>
+    <article class="feature-card" data-content-slot="feature-flow">
+      <span class="feature-icon" aria-hidden="true"></span>
+      <h3 data-content-key="feature-flow-title">Seamless Flow</h3>
+      <p data-content-key="feature-flow-body">A responsive interface that adapts to you, from large screens to your phone.</p>
+    </article>
+  </div>
+</section>
+
+<section class="section community" data-content-block="home-community">
+  <div class="container community-inner">
+    <div class="community-copy">
+      <h2 data-content-key="community-title">Built for people who lead with ideas</h2>
+      <p data-content-key="community-body">
+        Aserras is crafted for creators, educators, developers, and dreamers who need intelligent tools that stay ethical and private.
+        We believe technology should empower you — not track you. Every feature is designed to keep you in control.
+      </p>
+    </div>
+    <div class="community-quote" data-content-slot="community-quote">
+      <p data-content-key="community-quote-body">“Aserras helps our teams think faster and collaborate without compromise. It's the standard for premium creative work.”</p>
+      <span class="community-quote__name" data-content-key="community-quote-name">Aurora Mitchell</span>
+      <span class="community-quote__role" data-content-key="community-quote-role">Executive Producer, Meridian Collective</span>
+    </div>
+  </div>
+</section>
+
+<section class="section cta-banner" data-content-block="home-bottom-cta">
+  <div class="container banner-inner">
+    <div>
+      <h2 data-content-key="home-bottom-cta-title">Join Aserras today — work faster, think clearer, create better.</h2>
+    </div>
+    <a class="btn primary" href="/signup" data-content-key="home-bottom-cta-action">Start Now</a>
+  </div>
+</section>
+{% endblock %}

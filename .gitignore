@@ -1,0 +1,8 @@
+# Local environment & deployment scripts
+.venv/
+reload-aserras.sh
+aserras.service
+
+# Python artifacts
+__pycache__/
+*.pyc

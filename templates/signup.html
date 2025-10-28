@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth-shell fade-in" data-content-block="signup">
+  <div class="auth-card glass">
+    <header class="auth-card__header">
+      <h1 data-content-key="signup-title">Create your Aserras account</h1>
+      <p class="muted" data-content-key="signup-subtitle">Join a private, intelligent workspace designed for focus.</p>
+    </header>
+    <div class="auth-providers" data-auth-providers>
+      <button class="provider-button" type="button" data-auth-provider="google" data-content-key="signup-provider-google">Continue with Google</button>
+      <button class="provider-button" type="button" data-auth-provider="microsoft" data-content-key="signup-provider-microsoft">Continue with Microsoft</button>
+      <button class="provider-button" type="button" data-auth-provider="apple" data-content-key="signup-provider-apple">Continue with Apple</button>
+      <button class="provider-button" type="button" data-auth-provider="github" data-content-key="signup-provider-github">Continue with GitHub</button>
+      <p class="muted small" data-content-key="signup-provider-note">Sign-in is handled securely by Aserras.</p>
+    </div>
+    <form id="signup-form" class="auth-form" data-auth-form="signup" novalidate>
+      <div class="field">
+        <label class="field__label" for="signup-name">Full Name</label>
+        <input class="field__input" id="signup-name" name="fullName" type="text" autocomplete="name" required />
+      </div>
+      <div class="field">
+        <label class="field__label" for="signup-email">Email Address</label>
+        <input class="field__input" id="signup-email" name="email" type="email" autocomplete="email" required />
+      </div>
+      <div class="field-grid">
+        <div class="field field--with-toggle">
+          <label class="field__label" for="signup-password">Password</label>
+          <input class="field__input" id="signup-password" name="password" type="password" autocomplete="new-password" required />
+          <button class="field__toggle" type="button" data-password-toggle="signup-password" aria-label="Show password"></button>
+        </div>
+        <div class="field field--with-toggle">
+          <label class="field__label" for="signup-confirm">Confirm Password</label>
+          <input class="field__input" id="signup-confirm" name="confirmPassword" type="password" autocomplete="new-password" required />
+          <button class="field__toggle" type="button" data-password-toggle="signup-confirm" aria-label="Show password"></button>
+        </div>
+      </div>
+      <label class="checkbox">
+        <input id="signup-terms" name="acceptTerms" type="checkbox" required />
+        <span>I agree to the <a class="link" href="/terms" target="_blank">Terms</a> &amp; <a class="link" href="/privacy" target="_blank">Privacy</a>.</span>
+      </label>
+      <button class="btn btn--primary" type="submit" data-content-key="signup-submit">Create Account</button>
+      <p class="form-feedback" role="status" hidden data-content-key="signup-feedback"></p>
+    </form>
+    <footer class="auth-card__footer">
+      <p data-content-key="signup-footer">Already have an account? <a class="link" href="/login">Sign in</a></p>
+    </footer>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    window.aserrasUI?.setAuthState?.(false);
+    window.aserrasUI?.initAuthShell?.();
+  });
+</script>
+{% endblock %}

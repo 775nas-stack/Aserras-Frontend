@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="section checkout" data-checkout data-plan-id="{{ selected_plan.id }}">
+  <div class="container checkout-layout">
+    <div class="checkout-summary" data-content-block="checkout-summary">
+      <p class="muted small" data-content-key="checkout-step-label">Step 1 · Review your plan</p>
+      <h1 data-content-key="checkout-title">Secure checkout for <span data-plan-name>{{ selected_plan.name }}</span></h1>
+      <p class="summary-description" data-content-key="checkout-description">
+        {{ selected_plan.description }}
+      </p>
+      <div class="summary-card">
+        <div class="summary-price" data-plan-price>
+          {{ selected_plan.price }}<span>/month</span>
+        </div>
+        <ul class="summary-features" data-plan-features>
+          {% for feature in selected_plan.features %}
+          <li data-feature-index="{{ loop.index0 }}">{{ feature }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      <p class="muted small">
+        Billing is securely handled by Aserras at checkout. When you complete payment, your plan will update automatically.
+      </p>
+    </div>
+    <div class="checkout-methods" data-content-block="checkout-methods">
+      <p class="muted small" data-content-key="checkout-step-payment">Step 2 · Choose how to pay</p>
+      <h2 data-content-key="checkout-methods-title">Select a payment method</h2>
+      <div class="method-grid" data-payment-methods>
+        <button class="payment-method" type="button" data-payment-method="google_pay">
+          <span class="method-label" data-content-key="payment-google-pay">Google Pay</span>
+        </button>
+        <button class="payment-method" type="button" data-payment-method="paypal">
+          <span class="method-label" data-content-key="payment-paypal">PayPal</span>
+        </button>
+        <button class="payment-method" type="button" data-payment-method="apple_pay">
+          <span class="method-label" data-content-key="payment-apple-pay">Apple Pay</span>
+        </button>
+        <button class="payment-method" type="button" data-payment-method="card">
+          <span class="method-label" data-content-key="payment-card">Card (Stripe)</span>
+        </button>
+      </div>
+      <p class="muted small">
+        We’ll open the secure checkout in a new window once billing is enabled.
+      </p>
+      <p class="form-feedback" role="status" hidden></p>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    window.aserrasUI?.initCheckout?.();
+  });
+</script>
+{% endblock %}

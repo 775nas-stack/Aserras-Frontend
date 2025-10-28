@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="section settings" data-content-block="settings-preview">
+  <div class="container narrow">
+    <h1 data-content-key="settings-title">Preview Settings</h1>
+    <p class="muted" data-content-key="settings-subtitle">
+      Personalise how Aserras adapts to your workflow and presentation preferences.
+    </p>
+    <div class="settings-panel">
+      <div class="setting-row" data-content-slot="settings-theme">
+        <div>
+          <h2 data-content-key="settings-theme-title">Theme</h2>
+          <p data-content-key="settings-theme-body">Toggle between light and dark experiences.</p>
+        </div>
+        <button class="btn btn--ghost" type="button" data-theme-toggle data-theme-variant="text">
+          <span data-theme-text>Toggle Theme</span>
+        </button>
+      </div>
+      <div class="setting-row" data-content-slot="settings-language">
+        <div>
+          <h2 data-content-key="settings-language-title">Language</h2>
+          <p data-content-key="settings-language-body">Select the default language for prompts and the interface.</p>
+        </div>
+        <select class="field__input" name="language" disabled>
+          <option selected>English (Default)</option>
+          <option>Spanish</option>
+          <option>French</option>
+        </select>
+      </div>
+      <div class="setting-row" data-content-slot="settings-notifications">
+        <div>
+          <h2 data-content-key="settings-notifications-title">Notifications</h2>
+          <p data-content-key="settings-notifications-body">Receive updates about new features and workspace activity.</p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" disabled />
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="setting-row" data-content-slot="settings-data">
+        <div>
+          <h2 data-content-key="settings-data-title">Data controls</h2>
+          <p data-content-key="settings-data-body">Manage exports, retention, and privacy preferences from one place.</p>
+        </div>
+        <button class="btn btn--outline" type="button" disabled data-content-key="settings-data-action">Manage</button>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    window.aserrasUI?.initSettingsPreview?.();
+  });
+</script>
+{% endblock %}
