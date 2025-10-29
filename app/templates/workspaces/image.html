@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid gap-6 lg:grid-cols-[1.2fr,0.8fr]">
+    <section class="p-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-[var(--surface-strong)] shadow-sm flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold">Image studio</h2>
+            <span class="text-xs text-[var(--text-muted)]">Powered by Aserras Brain</span>
+        </div>
+        <form id="imageForm" class="space-y-4">
+            <textarea id="imagePrompt" name="prompt" rows="4" required class="w-full px-4 py-3 rounded-2xl border border-slate-300 dark:border-slate-700 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Describe the visual you want to create"></textarea>
+            <div class="flex flex-wrap items-center gap-3">
+                <label class="text-sm text-[var(--text-muted)]">Size</label>
+                <select id="imageSize" name="size" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm">
+                    <option value="512x512">Square 512</option>
+                    <option value="768x768">Square 768</option>
+                    <option value="1024x1024" selected>Square 1024</option>
+                </select>
+                <button type="submit" class="ml-auto inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white font-medium shadow-lg shadow-blue-500/30">
+                    <span>Generate</span>
+                    <span id="imageLoading" class="hidden w-4 h-4 border-2 border-blue-200 rounded-full spinner"></span>
+                </button>
+            </div>
+        </form>
+        <div id="imageResults" class="mt-6 grid gap-4 md:grid-cols-2"></div>
+    </section>
+    <aside class="p-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-[var(--surface-strong)] shadow-sm space-y-4 text-sm text-[var(--text-muted)]">
+        <div>
+            <h3 class="text-base font-semibold text-[var(--text)] mb-2">Tips for better outputs</h3>
+            <ul class="space-y-2">
+                <li>Include lighting, mood, and composition details.</li>
+                <li>Specify aspect ratio using the size selector.</li>
+                <li>Iterate quickly—re-run prompts from history.</li>
+            </ul>
+        </div>
+        <div>
+            <h3 class="text-base font-semibold text-[var(--text)] mb-2">Recent activity</h3>
+            <p class="text-sm">Images are stored in your history after each generation.</p>
+        </div>
+    </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+    const imageForm = document.getElementById('imageForm');
+    const imageResults = document.getElementById('imageResults');
+    const imageLoading = document.getElementById('imageLoading');
+
+    imageForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const formData = new FormData(imageForm);
+        const prompt = formData.get('prompt').trim();
+        if (!prompt) return;
+        imageLoading?.classList.remove('hidden');
+        try {
+            const response = await fetch('/api/image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt,
+                    size: formData.get('size'),
+                }),
+            });
+            if (!response.ok) {
+                const detail = await response.json();
+                throw new Error(detail.detail || 'Generation failed');
+            }
+            const data = await response.json();
+            const images = data.images || data.result || [];
+            renderImages(images, prompt);
+        } catch (error) {
+            showError(error.message);
+        } finally {
+            imageLoading?.classList.add('hidden');
+        }
+    });
+
+    function renderImages(images, prompt) {
+        if (!imageResults) return;
+        imageResults.innerHTML = '';
+        if (!images.length) {
+            showError('No images returned from Aserras Brain.');
+            return;
+        }
+        images.forEach((image, index) => {
+            const card = document.createElement('div');
+            card.className = 'rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow';
+            card.innerHTML = `
+                <div class="aspect-square bg-slate-900/80 flex items-center justify-center">
+                    <img src="${image.url || image}" alt="Generated image ${index + 1}" class="w-full h-full object-cover" loading="lazy" />
+                </div>
+                <div class="px-4 py-3 space-y-2">
+                    <p class="text-xs text-[var(--text-muted)] break-words">${prompt}</p>
+                    <a href="${image.url || image}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-sm text-blue-500">Open original</a>
+                </div>`;
+            imageResults.appendChild(card);
+        });
+    }
+
+    function showError(message) {
+        if (!imageResults) return;
+        imageResults.innerHTML = `<div class="px-4 py-3 rounded-2xl border border-red-200 text-red-600 bg-red-50 dark:bg-red-500/10">${message}</div>`;
+    }
+</script>
+{% endblock %}

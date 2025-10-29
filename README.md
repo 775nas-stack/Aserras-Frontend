@@ -1,40 +1,48 @@
 # Aserras Frontend
 
-Static marketing site and chat UI for the Aserras platform served through a FastAPI
-application. The project exposes multiple marketing pages, authentication flows,
-and a chat workspace rendered with Jinja templates.
+Modern FastAPI + Jinja application that delivers the full Aserras user experience.
+The frontend authenticates against **Aserras Brain**, proxies all AI workloads
+(text, image, automation), and renders a responsive dashboard powered by
+TailwindCSS.
 
 ## Project structure
 
 ```
-├── app.py              # FastAPI application factory and routes
-├── config.py           # Environment aware settings using pydantic-settings
-├── deploy/             # Systemd + nginx configs and setup scripts
-├── static/             # Compiled assets (CSS, JS, sitemap, robots)
-├── templates/          # Jinja templates for every page and error view
-└── tests/              # FastAPI smoke tests for the main routes
+├── app/
+│   ├── main.py            # Application factory, middleware, exception handling
+│   ├── settings.py        # Environment-aware configuration
+│   ├── routers/           # Route modules (home, auth, chat, image, code, history, settings)
+│   ├── services/          # Brain API client abstraction
+│   ├── dependencies/      # Authentication helpers and shared dependencies
+│   ├── templates/         # Jinja templates for pages and workspaces
+│   └── static/            # CSS, JS, sitemap, robots, and other assets
+├── app.py                 # Compatibility export for `uvicorn app:app`
+├── config.py              # Backwards-compatible re-export of Settings helpers
+├── deploy/                # Systemd + nginx configuration and helper scripts
+├── requirements.txt       # Python dependencies
+└── tests/                 # Smoke tests for routes and APIs
 ```
 
 ## Requirements
 
-The app depends on FastAPI plus Starlette's optional `aiofiles` package so static
-assets can be streamed correctly. All dependencies are listed in
-`requirements.txt`:
+Install the dependencies listed in `requirements.txt`:
 
 ```
 aiofiles
 fastapi
+httpx
 jinja2
 openai
 pydantic-settings
 python-dotenv
+python-multipart
 uvicorn[standard]
 ```
 
 ## Local development
 
-1. Create and activate a virtual environment (optional).
-2. Install the dependencies:
+1. (Optional) create and activate a virtual environment.
+2. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
@@ -42,69 +50,32 @@ uvicorn[standard]
    ```bash
    uvicorn app:app --reload
    ```
-4. Visit `http://localhost:8000` to browse the marketing pages and chat UI.
+4. Visit `http://localhost:8000` to access the landing page, login, dashboard,
+   and all workspaces.
+
+The application expects the Brain API to be reachable at the URL defined by the
+`ASERRAS_BRAIN_API_URL` environment variable (defaults to
+`https://brain.aserras.com`).
 
 ## Deployment
 
-The `deploy/` directory mirrors the production environment that is currently
-running on the Aserras server. Everything required to stand up the application
-after a fresh clone — systemd unit, nginx site configuration, and helper
-scripts — ships with the repository so nothing is lost on future redeploys.
+Production hosts consume the assets inside `deploy/`:
 
-### System prerequisites
-
-* Ubuntu 22.04 LTS (or compatible systemd-based distro)
-* Python 3.10+
-* nginx installed and enabled
-* `aserras` (or your chosen) service user with access to `/opt/aserras-frontend`
-
-### One-time bootstrap
-
-> **Run as root (or with sudo)** so system packages, logs, and services can be
-> configured without manual intervention.
-
-```bash
-sudo bash deploy/setup.sh
-```
-
-The setup helper performs a clean clone into `/var/www/`, provisions a fresh
-virtual environment, installs `requirements.txt`, and ensures the
-`aserras-frontend` systemd unit is enabled and running. Because it always
-targets the canonical clone path, running it on a freshly provisioned host
-results in the same layout and permissions every time.
-
-### Updating a running deployment
-
-After pulling new application code:
-
-```bash
-sudo bash deploy/reload.sh
-```
-
-This helper fetches the latest `origin/main`, force-syncs the working tree,
-rebuilds the `.venv`, and restarts the FastAPI service so new code and
-dependencies land atomically.
-
-### nginx + systemd assets
-
-* `deploy/systemd/aserras-frontend.service` – runs Uvicorn from the repo’s
-  `.venv`, binds to port 8080, writes logs to `/var/log/aserras/`, and loads any
-  secrets from `.env`.
-* `deploy/nginx/aserras.com` – proxies application traffic to Uvicorn and
-  serves `/static/` directly for maximal performance.
-* `deploy/setup.sh` – one-shot bootstrapper for cloning, virtualenv creation,
-  dependency installation, and service enablement.
-* `deploy/reload.sh` – repeatable helper that syncs `origin/main`, rebuilds the
-  environment, and restarts the service.
+* `deploy/systemd/aserras-frontend.service` – runs Uvicorn behind systemd.
+* `deploy/nginx/` – nginx site configuration that proxies to Uvicorn and serves
+  static assets efficiently.
+* `deploy/setup.sh` – one-shot bootstrapper that clones the repo, builds a
+  virtualenv, installs dependencies, and enables the systemd service.
+* `deploy/reload.sh` – repeatable helper to pull, reinstall, and restart in
+  place.
 
 ## Tests
 
-Basic smoke tests confirm that the most important routes render without errors:
+Run the FastAPI smoke tests before committing or deploying:
 
 ```bash
 pytest
 ```
 
-The smoke suite exercises all critical marketing routes plus static asset
-delivery. Run it before commits or deployments to confirm the application and
-asset pipeline remain healthy.
+The suite verifies public pages, protected routes, API authentication, and
+static/service file delivery.

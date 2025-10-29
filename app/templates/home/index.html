@@ -1,0 +1,77 @@
+{% extends "marketing.html" %}
+{% block content %}
+<section class="grid gap-8 lg:grid-cols-2 items-center">
+    <div class="space-y-6">
+        <span class="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-blue-500/10 text-blue-600 text-sm font-medium">
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+            Production-grade AI front office
+        </span>
+        <h2 class="text-4xl lg:text-5xl font-bold tracking-tight">Aserras turns your operators into augmented teams.</h2>
+        <p class="text-lg text-[var(--text-muted)]">Create text, images, automations, and workflows through a unified workspace powered entirely by Aserras Brain. Authenticate once, generate everywhere.</p>
+        <div class="flex flex-wrap gap-3">
+            <a href="/signup" class="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-blue-600 text-white font-semibold shadow-lg shadow-blue-500/30 hover:bg-blue-500 transition">Create account</a>
+            <a href="/login" class="inline-flex items-center justify-center px-5 py-3 rounded-xl border border-slate-300 dark:border-slate-700 text-[var(--text)] hover:bg-blue-500/10">Sign in</a>
+        </div>
+        <dl class="grid grid-cols-2 gap-6 pt-6 border-t border-slate-200 dark:border-slate-800">
+            <div>
+                <dt class="text-sm text-[var(--text-muted)]">Realtime chat throughput</dt>
+                <dd class="text-2xl font-semibold">99.9% uptime</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-[var(--text-muted)]">Global teams</dt>
+                <dd class="text-2xl font-semibold">42 countries</dd>
+            </div>
+        </dl>
+    </div>
+    <div class="relative">
+        <div class="absolute inset-0 -translate-x-8 -translate-y-8 rounded-3xl bg-gradient-to-br from-blue-500/20 via-cyan-400/20 to-transparent blur-3xl"></div>
+        <div class="relative rounded-3xl border border-slate-200 dark:border-slate-800 bg-[var(--surface-strong)] shadow-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-semibold">Unified Console</span>
+                <span class="text-xs text-[var(--text-muted)]">Secure via HTTPS</span>
+            </div>
+            <div class="rounded-2xl bg-slate-900 text-slate-100 p-4 space-y-3 text-sm font-mono">
+                <p>&gt; Initiating secure channel…</p>
+                <p class="text-emerald-400">✓ Connected to Aserras Brain</p>
+                <p>&gt; Request: Generate launch plan</p>
+                <p class="text-blue-300">Brain: “Here’s a go-to-market strategy tailored to your industry.”</p>
+            </div>
+            <div class="grid grid-cols-3 gap-3 text-center text-xs text-[var(--text-muted)]">
+                <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <p class="text-sm font-semibold text-[var(--text)]">Chat</p>
+                    <p>Text + voice</p>
+                </div>
+                <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <p class="text-sm font-semibold text-[var(--text)]">Image</p>
+                    <p>Studio quality</p>
+                </div>
+                <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <p class="text-sm font-semibold text-[var(--text)]">Automation</p>
+                    <p>Secure ops</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<section class="mt-16">
+    <h3 class="text-2xl font-semibold mb-6">Why teams choose Aserras</h3>
+    <div class="grid gap-6 md:grid-cols-2">
+        <article class="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-[var(--surface-strong)] shadow-sm">
+            <h4 class="text-lg font-semibold">Secure by design</h4>
+            <p class="mt-2 text-sm text-[var(--text-muted)]">Every call uses signed JWT tokens, encrypted transport, and throttled access so your data stays safe.</p>
+        </article>
+        <article class="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-[var(--surface-strong)] shadow-sm">
+            <h4 class="text-lg font-semibold">Operational telemetry</h4>
+            <p class="mt-2 text-sm text-[var(--text-muted)]">Understand usage by workspace, model, and teammate with actionable analytics inside your dashboard.</p>
+        </article>
+        <article class="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-[var(--surface-strong)] shadow-sm">
+            <h4 class="text-lg font-semibold">Unified workflows</h4>
+            <p class="mt-2 text-sm text-[var(--text-muted)]">Switch between chat, image, and automation with a single sidebar and consistent UX.</p>
+        </article>
+        <article class="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-[var(--surface-strong)] shadow-sm">
+            <h4 class="text-lg font-semibold">Future-ready platform</h4>
+            <p class="mt-2 text-sm text-[var(--text-muted)]">Aserras Brain keeps models fresh so you can focus on outcomes, not infrastructure.</p>
+        </article>
+    </div>
+</section>
+{% endblock %}
