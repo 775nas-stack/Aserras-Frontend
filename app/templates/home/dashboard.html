@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid gap-6 lg:grid-cols-3">
+    <section class="lg:col-span-2 space-y-6">
+        <div class="p-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-[var(--surface-strong)] shadow-sm">
+            <h2 class="text-xl font-semibold">Welcome back, {{ user.get('name', 'Visionary') }}</h2>
+            <p class="mt-2 text-sm text-[var(--text-muted)]">Here’s a quick summary of your recent sessions. Jump back into any workspace instantly.</p>
+            <div class="mt-6 grid gap-4 md:grid-cols-3">
+                <div class="p-4 rounded-2xl border border-blue-200 dark:border-blue-500/40 bg-blue-500/5">
+                    <p class="text-xs uppercase tracking-wide text-blue-500 font-semibold">Active workspace</p>
+                    <p class="mt-1 text-2xl font-semibold text-[var(--text)]">Chat</p>
+                </div>
+                <div class="p-4 rounded-2xl border border-emerald-200 dark:border-emerald-500/40 bg-emerald-500/5">
+                    <p class="text-xs uppercase tracking-wide text-emerald-500 font-semibold">Models available</p>
+                    <p class="mt-1 text-2xl font-semibold text-[var(--text)]">{{ models|length }}</p>
+                </div>
+                <div class="p-4 rounded-2xl border border-purple-200 dark:border-purple-500/40 bg-purple-500/5">
+                    <p class="text-xs uppercase tracking-wide text-purple-500 font-semibold">History entries</p>
+                    <p class="mt-1 text-2xl font-semibold text-[var(--text)]">{{ history|length }}</p>
+                </div>
+            </div>
+            {% if server_warning %}
+            <div class="mt-4 px-4 py-3 rounded-2xl border border-amber-200 text-amber-600 bg-amber-50 dark:bg-amber-500/10">{{ server_warning }}</div>
+            {% endif %}
+        </div>
+        <div class="p-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-[var(--surface-strong)] shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold">Recent history</h3>
+                <a href="/history" class="text-sm text-blue-500">View all</a>
+            </div>
+            {% if history %}
+            <div class="space-y-3">
+                {% for item in history %}
+                <article class="px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col gap-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-[var(--text)]">{{ item.get('title', 'Untitled generation') }}</span>
+                        <span class="text-xs text-[var(--text-muted)]">{{ item.get('created_at') or item.get('createdAt') }}</span>
+                    </div>
+                    <p class="text-sm text-[var(--text-muted)]">{{ item.get('prompt', 'No prompt recorded')[:160] }}{% if item.get('prompt') and item.get('prompt')|length > 160 %}…{% endif %}</p>
+                    <div class="flex items-center gap-2">
+                        <a href="/chat?prompt={{ item.get('prompt', '')|urlencode }}" class="text-xs px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-500">Re-run</a>
+                        <button type="button" class="text-xs px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700" data-history-prompt="{{ item.get('prompt', '') }}">Copy prompt</button>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-[var(--text-muted)]">No history yet. Generate something new in chat, image, or automation.</p>
+            {% endif %}
+        </div>
+    </section>
+    <aside class="space-y-6">
+        <div class="p-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-[var(--surface-strong)] shadow-sm">
+            <h3 class="text-lg font-semibold mb-3">Available models</h3>
+            {% if models %}
+            <ul class="space-y-2 text-sm text-[var(--text-muted)]">
+                {% for model in models %}
+                <li class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-between">
+                    <span>{{ model.get('name', model.get('id', 'Model')) }}</span>
+                    <span class="text-xs text-blue-500">{{ model.get('tier', 'standard') }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-[var(--text-muted)]">Model catalogue will load once Aserras Brain is available.</p>
+            {% endif %}
+        </div>
+        <div class="p-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-[var(--surface-strong)] shadow-sm">
+            <h3 class="text-lg font-semibold mb-2">Quick start</h3>
+            <ul class="space-y-2 text-sm text-blue-500">
+                <li><a href="/chat" class="hover:underline">Open chat workspace</a></li>
+                <li><a href="/image" class="hover:underline">Generate an image</a></li>
+                <li><a href="/code" class="hover:underline">Launch automation</a></li>
+            </ul>
+        </div>
+    </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+    document.querySelectorAll('[data-history-prompt]').forEach((button) => {
+        button.addEventListener('click', () => {
+            navigator.clipboard.writeText(button.dataset.historyPrompt || '').then(() => {
+                const toast = document.getElementById('toast');
+                if (toast) {
+                    toast.textContent = 'Prompt copied to clipboard.';
+                    toast.classList.remove('hidden');
+                    setTimeout(() => toast.classList.add('hidden'), 2000);
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

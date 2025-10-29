@@ -1,0 +1,11 @@
+{% extends "marketing.html" %}
+{% block content %}
+<div class="max-w-xl mx-auto mt-16 text-center space-y-4">
+    <h1 class="text-4xl font-semibold">We hit a snag</h1>
+    <p class="text-lg text-[var(--text-muted)]">The frontend couldn’t reach Aserras Brain. Please try again shortly.</p>
+    <div class="flex justify-center gap-3">
+        <a href="/" class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 text-white font-semibold shadow-lg shadow-blue-500/30">Return home</a>
+        <button onclick="window.location.reload()" class="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-slate-300 dark:border-slate-700">Retry</button>
+    </div>
+</div>
+{% endblock %}
