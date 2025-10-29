@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth-shell fade-in" data-content-block="forgot">
+  <div class="auth-card glass">
+    <header class="auth-card__header">
+      <h1 data-content-key="forgot-title">Reset your password</h1>
+      <p class="muted" data-content-key="forgot-subtitle">Enter your email and we’ll send a secure reset link.</p>
+    </header>
+    <form id="forgot-form" class="auth-form" data-auth-form="forgot" novalidate>
+      <div class="field">
+        <label class="field__label" for="forgot-email" data-content-key="forgot-label">Email Address</label>
+        <input class="field__input" id="forgot-email" name="email" type="email" autocomplete="email" required />
+      </div>
+      <button class="btn btn--primary" type="submit" data-content-key="forgot-submit">Send Reset Link</button>
+      <p class="form-feedback" role="status" hidden data-content-key="forgot-feedback"></p>
+      <p class="muted small" data-content-key="forgot-footnote">We’ll reply quickly — please check your inbox for next steps.</p>
+    </form>
+    <footer class="auth-card__footer">
+      <p data-content-key="forgot-footer">Remembered your password? <a class="link" href="/login">Return to sign in</a></p>
+    </footer>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    window.aserrasUI?.setAuthState?.(false);
+    window.aserrasUI?.initAuthShell?.();
+  });
+</script>
+{% endblock %}

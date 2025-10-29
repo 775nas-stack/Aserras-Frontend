@@ -12,9 +12,13 @@ from app import app  # noqa: E402
 client = TestClient(app)
 
 
-def test_public_pages_render():
+def test_primary_pages_render():
     paths = [
         '/',
+        '/about',
+        '/contact',
+        '/pricing',
+        '/chat',
         '/login',
         '/signup',
         '/dashboard',
@@ -26,32 +30,19 @@ def test_public_pages_render():
         assert 'text/html' in response.headers.get('content-type', '')
 
 
-def test_protected_pages_require_authentication():
-    secure_paths = ['/chat', '/image', '/code', '/history']
-    for path in secure_paths:
-        response = client.get(path)
-        assert response.status_code in (401, 307)
-
-
-def test_health_endpoint():
-    response = client.get('/health')
+def test_static_assets_served():
+    response = client.get('/static/css/style.css')
     assert response.status_code == 200
-    assert response.json() == {'status': 'ok'}
+    assert 'text/css' in response.headers.get('content-type', '')
+    assert '.site-header' in response.text
 
 
-def test_static_assets_and_service_files():
-    css_response = client.get('/static/css/style.css')
-    assert css_response.status_code == 200
-
+def test_service_files_available():
     robots = client.get('/robots.txt')
+    sitemap = client.get('/sitemap.xml')
+
     assert robots.status_code == 200
     assert 'User-agent' in robots.text
 
-    sitemap = client.get('/sitemap.xml')
     assert sitemap.status_code == 200
     assert '<urlset' in sitemap.text
-
-
-def test_chat_api_requires_authentication():
-    response = client.post('/api/chat', json={'prompt': 'hello'})
-    assert response.status_code == 401

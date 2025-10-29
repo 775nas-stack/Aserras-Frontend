@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="dashboard-shell fade-in" data-content-block="dashboard">
+  <div class="container">
+    <header class="dashboard-hero">
+      <div>
+        <p class="eyebrow" data-content-key="dashboard-eyebrow">Control Center</p>
+        <h1 data-content-key="dashboard-welcome">Welcome, {{ user_name }}</h1>
+        <p class="muted" data-content-key="dashboard-subtitle">Your conversations, plan details, and preferences stay organised here.</p>
+      </div>
+      <div class="dashboard-hero__actions">
+        <button class="btn btn--ghost" type="button" data-dashboard-action="refresh" data-content-key="dashboard-refresh">Refresh</button>
+        <button class="btn btn--outline" type="button" data-dashboard-action="signout" data-content-key="dashboard-signout">Sign Out</button>
+      </div>
+    </header>
+
+    <section class="dashboard-panels">
+      <article class="panel" data-content-slot="dashboard-history">
+        <header class="panel__header">
+          <h2 data-content-key="dashboard-history-title">Chat History</h2>
+          <button class="btn btn--ghost" type="button" data-dashboard-action="view-chat" data-content-key="dashboard-history-action">Open Chat</button>
+        </header>
+        <div class="panel__body" id="history-list" data-empty-state="Your conversations and plan details stay organised here."></div>
+      </article>
+      <article class="panel" data-content-slot="dashboard-account">
+        <header class="panel__header">
+          <h2 data-content-key="dashboard-account-title">Plan Overview</h2>
+          <span class="badge" data-badge="tier" data-content-key="dashboard-account-tier">Free Tier</span>
+        </header>
+        <dl class="panel__stats">
+          <div>
+            <dt data-content-key="dashboard-stat-messages">Messages tracked</dt>
+            <dd data-stat="messages">0</dd>
+          </div>
+          <div>
+            <dt data-content-key="dashboard-stat-seats">Team seats active</dt>
+            <dd data-stat="seats">0</dd>
+          </div>
+          <div>
+            <dt data-content-key="dashboard-stat-success">Automations</dt>
+            <dd data-stat="success">0%</dd>
+          </div>
+        </dl>
+        <footer class="panel__footer">
+          <button class="btn btn--primary" type="button" data-dashboard-action="upgrade" data-content-key="dashboard-upgrade">Upgrade Plan</button>
+          <a class="btn btn--outline" href="/pricing" data-content-key="dashboard-view-pricing">View Pricing</a>
+        </footer>
+      </article>
+      <article class="panel" data-content-slot="dashboard-settings">
+        <header class="panel__header">
+          <h2 data-content-key="dashboard-settings-title">Account Settings</h2>
+        </header>
+        <div class="panel__body panel__body--stacked">
+          <div class="setting">
+            <span data-content-key="dashboard-setting-theme">Theme</span>
+            <button class="btn btn--ghost" type="button" data-theme-toggle data-theme-variant="text">
+              <span data-theme-text>Switch theme</span>
+            </button>
+          </div>
+          <div class="setting">
+            <label for="dashboard-language" data-content-key="dashboard-setting-language">Language</label>
+            <select id="dashboard-language" name="language" class="field__input" data-dashboard-action="language">
+              <option value="en" selected>English</option>
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+            </select>
+          </div>
+          <div class="setting">
+            <span data-content-key="dashboard-setting-billing">Billing Status</span>
+            <p class="muted" data-content-key="dashboard-setting-billing-note">Billing updates appear here in real time.</p>
+          </div>
+        </div>
+      </article>
+    </section>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    window.aserrasUI?.initDashboardShell?.();
+  });
+</script>
+{% endblock %}
