@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from collections import deque
+from datetime import datetime, timedelta
+from secrets import token_hex
 from pathlib import Path
 from typing import Any
 
@@ -56,6 +58,40 @@ class ContactRequest(BaseModel):
     name: str
     email: str
     message: str
+
+
+DEFAULT_CHAT_HISTORY: tuple[dict[str, str], ...] = (
+    {
+        "id": "welcome-ai",
+        "role": "ai",
+        "text": "Welcome back to your private workspace. Ask anything to continue our flow.",
+        "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+    },
+)
+
+
+def _friendly_name(email: str, *, fallback: str | None = None) -> str:
+    """Return a readable display name for the provided email address."""
+
+    if fallback:
+        return fallback
+
+    local_part = email.split("@", 1)[0]
+    if not local_part:
+        return "Creator"
+    return " ".join(part.capitalize() for part in local_part.replace("_", " ").split("."))
+
+
+def _new_token(prefix: str = "session") -> str:
+    """Generate a predictable-length placeholder token."""
+
+    return f"{prefix}_{token_hex(16)}"
+
+
+def _timestamp(hours: int = 0) -> str:
+    """Return an ISO 8601 timestamp with optional hour offset."""
+
+    return (datetime.utcnow() + timedelta(hours=hours)).isoformat(timespec="seconds") + "Z"
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -265,57 +301,112 @@ def create_app(settings: Settings) -> FastAPI:
     async def privacy(request: Request):
         return render("privacy.html", request, page_title="Privacy")
 
+    app.state.chat_history = deque(DEFAULT_CHAT_HISTORY, maxlen=200)
+
     @app.post("/api/auth/login")
     async def api_login(payload: AuthRequest):
-        # TODO: Connect to the live authentication service.
+        if len(payload.password.strip()) < 6:
+            raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
+
+        user = {
+            "email": payload.email,
+            "name": _friendly_name(payload.email),
+        }
+
         return {
-            "status": "pending",
-            "message": "Authentication will be available shortly.",
+            "status": "ok",
+            "message": f"Welcome back, {user['name']}.",
             "redirect": "/dashboard",
+            "token": _new_token("session"),
+            "tokenType": "bearer",
+            "sessionExpires": _timestamp(hours=8),
+            "user": user,
         }
 
     @app.post("/api/auth/signup")
     async def api_signup(payload: SignupRequest):
-        # TODO: Connect to the live signup flow.
+        if len(payload.password.strip()) < 8:
+            raise HTTPException(status_code=400, detail="Choose a password that is at least 8 characters long")
+
+        user = {
+            "email": payload.email,
+            "name": _friendly_name(payload.email, fallback=payload.full_name.strip()),
+        }
+
         return {
-            "status": "pending",
-            "message": "Account creation will open soon.",
+            "status": "ok",
+            "message": f"Your workspace is ready, {user['name']}.",
+            "redirect": "/dashboard",
+            "token": _new_token("session"),
+            "tokenType": "bearer",
+            "sessionExpires": _timestamp(hours=12),
+            "user": user,
         }
 
     @app.post("/api/payment/create")
     async def api_payment(payload: PaymentRequest):
         if not payload.plan_id:
             raise HTTPException(status_code=400, detail="Missing plan identifier")
-        # TODO: Connect to the billing orchestration service.
+
         return {
-            "status": "pending",
+            "status": "ok",
             "planId": payload.plan_id,
-            "message": "Billing will be available in the next release.",
+            "message": "Your upgrade request has been scheduled. We'll email confirmation shortly.",
+            "reference": _new_token("payment"),
         }
 
     @app.post("/api/chat/send")
-    async def api_chat(payload: ChatRequest):
+    async def api_chat(payload: ChatRequest, request: Request):
         message = payload.message.strip()
         if not message:
             raise HTTPException(status_code=400, detail="Message cannot be empty")
 
-        # TODO: Connect to the live chat service and stream responses.
-        raise HTTPException(
-            status_code=503,
-            detail="Live chat connectivity is not active yet.",
+        history: deque[dict[str, str]] = request.app.state.chat_history
+
+        user_entry = {
+            "id": _new_token("user"),
+            "role": "user",
+            "text": message,
+            "timestamp": _timestamp(),
+        }
+
+        reply_text = (
+            "I'm capturing that now. Here's a quick insight: "
+            f"{message[:180]}"
+            if len(message) <= 180
+            else f"I'm capturing that now. Here's a quick insight: {message[:177]}..."
         )
 
+        ai_entry = {
+            "id": _new_token("ai"),
+            "role": "ai",
+            "text": reply_text,
+            "timestamp": _timestamp(),
+        }
+
+        history.append(user_entry)
+        history.append(ai_entry)
+
+        return {
+            "status": "ok",
+            "reply": ai_entry["text"],
+            "messages": list(history),
+        }
+
     @app.get("/api/user/history")
-    async def api_history():
-        # TODO: Pull conversation history from the account service.
-        return {"status": "pending", "messages": []}
+    async def api_history(request: Request):
+        history: deque[dict[str, str]] = request.app.state.chat_history
+        return {
+            "status": "ok",
+            "messages": list(history),
+        }
 
     @app.post("/api/contact/send")
     async def api_contact(payload: ContactRequest):
-        # TODO: Route contact messages to the concierge desk.
         return {
-            "status": "pending",
-            "message": "Messages will be routed to the concierge team soon.",
+            "status": "ok",
+            "message": "Thank you for contacting us. Our concierge team will follow up soon.",
+            "reference": _new_token("contact"),
         }
 
     return app

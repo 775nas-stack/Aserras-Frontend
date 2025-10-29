@@ -1,5 +1,6 @@
 (function () {
   const config = window.ASERRAS_CONFIG || {};
+  const endpoints = config.endpoints || {};
   const uiConfig = window.ASERRAS_UI_CONFIG || {
     pricingSource: 'brain',
     contentSource: 'brain',
@@ -27,11 +28,53 @@
 
   applyTheme(safeGetStoredTheme() || DEFAULT_THEME, { persist: false });
 
+  function buildTargets(resource) {
+    if (!resource) return [];
+
+    const value = String(resource).trim();
+    if (!value) return [];
+
+    const targets = [];
+    const isAbsolute = /^https?:\/\//i.test(value);
+
+    if (isAbsolute) {
+      targets.push(value);
+      try {
+        const url = new URL(value);
+        const relative = `${url.pathname}${url.search}`;
+        if (relative && relative !== value) {
+          targets.push(relative);
+        }
+      } catch (error) {
+        /* ignore malformed absolute URL */
+      }
+    } else {
+      const path = value.startsWith('/') ? value : `/${value}`;
+      if (baseApiUrl) {
+        targets.push(`${baseApiUrl}${path}`);
+      }
+      targets.push(path);
+    }
+
+    return Array.from(new Set(targets.filter(Boolean)));
+  }
+
+  function resolveEndpoint(key, fallback) {
+    const candidate = endpoints && Object.prototype.hasOwnProperty.call(endpoints, key)
+      ? endpoints[key]
+      : undefined;
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+    return fallback;
+  }
+
   const api = {
     async request(path, options = {}) {
-      const targets = baseApiUrl
-        ? [`${baseApiUrl}${path}`, path]
-        : [path];
+      const targets = buildTargets(path);
+      if (!targets.length) {
+        throw new Error('No request targets could be resolved');
+      }
 
       let lastError;
 
@@ -47,7 +90,8 @@
 
           if (!response.ok) {
             const detail = await response.json().catch(() => ({}));
-            throw new Error(detail.detail || 'Request failed');
+            const message = detail.message || detail.detail || response.statusText;
+            throw new Error(message || 'Request failed');
           }
 
           return response.json();
@@ -413,12 +457,30 @@
     if (!form) return;
     const feedback = form.querySelector('.form-feedback');
 
-    form.addEventListener('submit', (event) => {
+    form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const formData = Object.fromEntries(new FormData(form).entries());
-      setFeedback(feedback, "Thank you for your message. We'll reply shortly.");
-      console.info('[Aserras] Contact form submission captured.', formData);
-      form.reset();
+      setFeedback(feedback, 'Sending your note to the concierge...');
+
+      try {
+        const response = await api.request(resolveEndpoint('contactSend', '/api/contact/send'), {
+          method: 'POST',
+          body: JSON.stringify(formData),
+        });
+        setFeedback(
+          feedback,
+          response.message || "Thank you for your message. We'll reply shortly.",
+        );
+        console.info('[Aserras] Contact form submission captured.', formData);
+        form.reset();
+      } catch (error) {
+        setFeedback(
+          feedback,
+          error?.message || 'We could not send your message just now. Please try again in a moment.',
+          true,
+        );
+        console.error('[Aserras] Contact form submission failed.', error);
+      }
     });
   }
 
@@ -433,16 +495,36 @@
     return copy;
   }
 
-  function loginUser(formData, feedback) {
-    setFeedback(feedback, 'Welcome back. Redirecting to your dashboard...');
-    console.info('[Aserras] Login submission captured.', scrubSensitive(formData));
-    window.aserrasUI?.setAuthState?.(true);
-    setTimeout(() => {
-      window.location.href = '/dashboard';
-    }, 600);
+  async function loginUser(formData, feedback) {
+    setFeedback(feedback, 'Signing you in securely...');
+    try {
+      const payload = {
+        email: formData.email,
+        password: formData.password,
+      };
+      const response = await api.request(resolveEndpoint('authLogin', '/api/auth/login'), {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      console.info('[Aserras] Login submission captured.', scrubSensitive(formData));
+      setFeedback(feedback, response.message || 'Welcome back. Redirecting to your dashboard...');
+      window.aserrasUI?.setAuthState?.(true);
+      const redirect = response.redirect || '/dashboard';
+      setTimeout(() => {
+        window.location.href = redirect;
+      }, 500);
+    } catch (error) {
+      console.error('[Aserras] Login request failed.', error);
+      setFeedback(
+        feedback,
+        error?.message || 'We could not sign you in right now. Please try again.',
+        true,
+      );
+    }
   }
 
-  function registerUser(formData, feedback) {
+  async function registerUser(formData, feedback) {
     if (formData.password !== formData.confirmPassword) {
       setFeedback(feedback, 'Passwords need to match before we can continue.', true);
       return;
@@ -453,12 +535,38 @@
       return;
     }
 
-    setFeedback(feedback, `Welcome aboard, ${formData.fullName || formData.email}! Setting up your workspace...`);
-    console.info('[Aserras] Signup submission captured.', scrubSensitive(formData));
-    window.aserrasUI?.setAuthState?.(true);
-    setTimeout(() => {
-      window.location.href = '/dashboard';
-    }, 800);
+    setFeedback(
+      feedback,
+      `Welcome aboard, ${formData.fullName || formData.email}! Setting up your workspace...`,
+    );
+
+    try {
+      const payload = {
+        fullName: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+      };
+
+      const response = await api.request(resolveEndpoint('authSignup', '/api/auth/signup'), {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      console.info('[Aserras] Signup submission captured.', scrubSensitive(formData));
+      window.aserrasUI?.setAuthState?.(true);
+      setFeedback(feedback, response.message || 'Your account is live. Redirecting now...');
+      const redirect = response.redirect || '/dashboard';
+      setTimeout(() => {
+        window.location.href = redirect;
+      }, 700);
+    } catch (error) {
+      console.error('[Aserras] Signup request failed.', error);
+      setFeedback(
+        feedback,
+        error?.message || 'We could not complete your signup right now. Please try again.',
+        true,
+      );
+    }
   }
 
   function requestPasswordReset(formData, feedback) {
@@ -521,15 +629,18 @@
         });
       });
 
-      form.addEventListener('submit', (event) => {
+      form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const formData = Object.fromEntries(new FormData(form).entries());
+        if (form.querySelector('[name="acceptTerms"]')) {
+          formData.acceptTerms = form.querySelector('[name="acceptTerms"]').checked;
+        }
         const type = form.dataset.authForm;
 
         if (type === 'login') {
-          loginUser(formData, feedback);
+          await loginUser(formData, feedback);
         } else if (type === 'signup') {
-          registerUser(formData, feedback);
+          await registerUser(formData, feedback);
         } else if (type === 'forgot') {
           requestPasswordReset(formData, feedback);
         }
@@ -544,7 +655,7 @@
     buttons.forEach((button) => {
       if (button.dataset.initialised === 'true') return;
       button.dataset.initialised = 'true';
-      button.addEventListener('click', () => {
+      button.addEventListener('click', async () => {
         const planId = button.closest('.pricing-card')?.dataset.plan;
         if (!planId) return;
         console.info('[Aserras] Checkout flow initialised.', { planId });
@@ -553,10 +664,16 @@
     });
   }
 
-  async function loadHistory(into) {
-    if (!into) return [];
-    into.innerHTML = '';
-    return [];
+  async function fetchHistory() {
+    const endpoint = resolveEndpoint('userHistory', '/api/user/history');
+    const response = await api.request(endpoint);
+    const messages = Array.isArray(response.messages) ? response.messages : [];
+    return messages.map((message) => ({
+      id: message.id,
+      role: message.role === 'ai' ? 'ai' : 'user',
+      text: message.text || '',
+      timestamp: message.timestamp,
+    }));
   }
 
   function initChat() {
@@ -568,6 +685,14 @@
     const emptyState = transcript?.querySelector('[data-chat-empty]') || null;
 
     if (!transcript || !form || !input || !sendButton) return;
+
+    let isSending = false;
+
+    const setStatus = (text, state = 'idle') => {
+      if (!status) return;
+      status.textContent = text;
+      status.dataset.state = state;
+    };
 
     const scrollToBottom = () => {
       transcript.scrollTo({ top: transcript.scrollHeight, behavior: 'smooth' });
@@ -581,12 +706,12 @@
       }
     };
 
-    const appendMessage = (role, text) => {
+    const appendMessage = (role, text, timestamp) => {
       transcript.setAttribute('aria-busy', 'true');
       const entry = createMessageElement({
         role,
         text,
-        timestamp: new Date().toISOString(),
+        timestamp: timestamp || new Date().toISOString(),
       });
       entry.setAttribute('tabindex', '-1');
       if (emptyState) {
@@ -605,6 +730,29 @@
       );
       transcript.setAttribute('aria-busy', 'false');
       return entry;
+    };
+
+    const hydrateHistory = async () => {
+      setStatus('Syncing your previous messages...', 'loading');
+      try {
+        transcript.querySelectorAll('.chat-bubble').forEach((node) => node.remove());
+        const messages = await fetchHistory();
+        messages.forEach((message) => {
+          appendMessage(message.role, message.text, message.timestamp);
+        });
+        toggleEmptyState();
+        setStatus(
+          'Messages you send are saved instantly and remain available across your workspace.',
+          'idle',
+        );
+      } catch (error) {
+        console.error('[Aserras] Unable to load chat history.', error);
+        toggleEmptyState();
+        setStatus(
+          'We could not load earlier conversations. New messages will still appear instantly.',
+          'error',
+        );
+      }
     };
 
     const autoresize = () => {
@@ -635,7 +783,36 @@
       }
     });
 
-    form.addEventListener('submit', (event) => {
+    const sendToAssistant = async (text) => {
+      if (isSending) return;
+      isSending = true;
+      setStatus('Aserras is thinking...', 'loading');
+
+      try {
+        const response = await api.request(resolveEndpoint('chatSend', '/api/chat/send'), {
+          method: 'POST',
+          body: JSON.stringify({ message: text }),
+        });
+
+        const history = Array.isArray(response.messages) ? response.messages : [];
+        const latestAssistant = [...history].reverse().find((message) => message.role === 'ai');
+        const reply = latestAssistant?.text || response.reply || 'Captured. Ready for the next step.';
+        appendMessage('ai', reply, latestAssistant?.timestamp);
+        toggleEmptyState();
+        setStatus('Synced. Ask anything else to continue.', 'synced');
+      } catch (error) {
+        console.error('[Aserras] Chat message failed.', error);
+        appendMessage(
+          'ai',
+          `We ran into an issue processing that update: ${error?.message || 'please try again shortly.'}`,
+        );
+        setStatus('We hit a connection snag. Trying again will usually fix it.', 'error');
+      } finally {
+        isSending = false;
+      }
+    };
+
+    form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const message = input.value.trim();
       if (!message) return;
@@ -645,14 +822,18 @@
       autoresize();
       updateSendState();
 
-      if (status) {
-        status.textContent = 'Message synced to your workspace. Replies surface here as your conversation evolves.';
-        status.dataset.state = 'queued';
-      }
+      setStatus(
+        'Message synced to your workspace. Replies surface here as your conversation evolves.',
+        'queued',
+      );
+
+      await sendToAssistant(message);
     });
+
+    hydrateHistory();
   }
 
-  function startCheckout(method, planId, feedback) {
+  async function startCheckout(method, planId, feedback) {
     if (!method) return;
     const label = formatLabelFromKey(method);
     const planLabel = formatLabelFromKey(planId || 'selected');
@@ -660,7 +841,30 @@
       feedback,
       `${label} checkout is preparing your ${planLabel} upgrade. You'll receive confirmation shortly.`,
     );
-    console.info('[Aserras] Checkout method selected.', { method, planId });
+
+    try {
+      const payload = {
+        planId,
+        token: method,
+      };
+      const response = await api.request(resolveEndpoint('paymentCreate', '/api/payment/create'), {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      setFeedback(
+        feedback,
+        response.message ||
+          `${label} checkout is preparing your ${planLabel} upgrade. Confirmation will arrive soon.`,
+      );
+      console.info('[Aserras] Checkout method selected.', { method, planId, reference: response.reference });
+    } catch (error) {
+      console.error('[Aserras] Checkout request failed.', error);
+      setFeedback(
+        feedback,
+        error?.message || 'We could not start the checkout flow. Please try another method.',
+        true,
+      );
+    }
   }
 
   function initCheckout() {
@@ -673,8 +877,8 @@
       if (button.dataset.initialised === 'true') return;
       if (button.hidden) return;
       button.dataset.initialised = 'true';
-      button.addEventListener('click', () => {
-        startCheckout(button.dataset.paymentMethod, planId, feedback);
+      button.addEventListener('click', async () => {
+        await startCheckout(button.dataset.paymentMethod, planId, feedback);
       });
     });
   }
@@ -736,26 +940,39 @@
     }
 
     async function refreshDashboard() {
-      updateStats([]);
-      renderHistory([]);
       if (historyList) {
         historyList.innerHTML = '';
         const notice = document.createElement('p');
         notice.className = 'muted';
-        notice.textContent =
-          historyList.dataset.emptyState ||
-          'History updates instantly as new conversations begin.';
+        notice.textContent = 'Loading your recent workspace activity...';
         historyList.appendChild(notice);
       }
-      console.info('[Aserras] Dashboard refresh queued.');
+
+      try {
+        const messages = await fetchHistory();
+        updateStats(messages);
+        renderHistory(messages);
+        console.info('[Aserras] Dashboard history synced.', { total: messages.length });
+      } catch (error) {
+        console.error('[Aserras] Dashboard refresh failed.', error);
+        updateStats([]);
+        if (historyList) {
+          historyList.innerHTML = '';
+          const errorRow = document.createElement('p');
+          errorRow.className = 'muted';
+          errorRow.textContent =
+            'We could not load recent history. Conversations will appear once the connection stabilises.';
+          historyList.appendChild(errorRow);
+        }
+      }
     }
 
-    function handleAction(event, element) {
+    async function handleAction(event, element) {
       const action = element.dataset.dashboardAction;
 
       switch (action) {
         case 'refresh':
-          refreshDashboard();
+          await refreshDashboard();
           break;
         case 'view-chat':
           window.location.href = '/chat';
@@ -782,11 +999,13 @@
       element.dataset.initialised = 'true';
 
       if (element.tagName === 'SELECT') {
-        element.addEventListener('change', (event) => handleAction(event, element));
+        element.addEventListener('change', async (event) => {
+          await handleAction(event, element);
+        });
       } else {
-        element.addEventListener('click', (event) => {
+        element.addEventListener('click', async (event) => {
           event.preventDefault();
-          handleAction(event, element);
+          await handleAction(event, element);
         });
       }
     });
