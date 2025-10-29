@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="chat-page image-workspace" data-content-block="image-studio">
+  <div class="container chat-container">
+    <header class="chat-hero">
+      <div class="chat-identity">
+        <span class="chat-logo" aria-hidden="true">A</span>
+        <div>
+          <p class="chat-greeting">Visualise with confidence.</p>
+          <h1>Image Studio</h1>
+          <p>
+            Describe the scene and Aserras paints it. Iterate quickly, refine details, and download production-ready assets.
+          </p>
+        </div>
+      </div>
+    </header>
+    <div class="chat-panel image-panel">
+      <div class="image-gallery" id="image-gallery" data-image-gallery>
+        <p class="chat-empty" data-image-empty>Start with a visual brief and we’ll render it here.</p>
+      </div>
+      <p class="chat-status" data-image-status data-state="idle" role="status" aria-live="polite">
+        Generated artwork appears instantly and stays in your private history.
+      </p>
+      <form id="image-form" class="chat-composer image-composer" autocomplete="off" novalidate data-image-form>
+        <label class="sr-only" for="image-prompt">Image prompt</label>
+        <textarea
+          id="image-prompt"
+          name="prompt"
+          rows="2"
+          placeholder="Describe what you’d like to see..."
+          data-image-input
+          spellcheck="true"
+          required
+        ></textarea>
+        <div class="image-controls">
+          <label class="sr-only" for="image-size">Image size</label>
+          <select id="image-size" name="size" class="field__input" data-image-size>
+            <option value="512x512">Square — 512px</option>
+            <option value="768x768">Square — 768px</option>
+            <option value="1024x1024" selected>Square — 1024px</option>
+            <option value="1024x1536">Portrait — 1024 × 1536</option>
+            <option value="1536x1024">Landscape — 1536 × 1024</option>
+          </select>
+          <button class="btn primary" type="submit" data-image-generate disabled>Generate</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    window.aserrasUI?.initImageStudio?.();
+  });
+</script>
+{% endblock %}

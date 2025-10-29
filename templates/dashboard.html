@@ -14,13 +14,29 @@
       </div>
     </header>
 
+    {% if server_warning %}
+      <p class="status status--warning">{{ server_warning }}</p>
+    {% endif %}
+
     <section class="dashboard-panels">
       <article class="panel" data-content-slot="dashboard-history">
         <header class="panel__header">
           <h2 data-content-key="dashboard-history-title">Chat History</h2>
           <button class="btn btn--ghost" type="button" data-dashboard-action="view-chat" data-content-key="dashboard-history-action">Open Chat</button>
         </header>
-        <div class="panel__body" id="history-list" data-empty-state="Your conversations and plan details stay organised here."></div>
+        <div class="panel__body" id="history-list" data-empty-state="Your conversations and plan details stay organised here.">
+          {% if history %}
+            {% for item in history %}
+              <div class="history-row">
+                <span class="history-row__role">{{ 'AI' if item.role == 'ai' else 'You' }}</span>
+                <span class="history-row__text">{{ item.title or item.prompt or item.summary or item.text }}</span>
+                <time class="history-row__time" datetime="{{ item.created_at or item.timestamp }}">
+                  {{ item.created_at or item.timestamp or '' }}
+                </time>
+              </div>
+            {% endfor %}
+          {% endif %}
+        </div>
       </article>
       <article class="panel" data-content-slot="dashboard-account">
         <header class="panel__header">

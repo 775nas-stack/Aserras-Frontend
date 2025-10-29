@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="chat-page code-workspace" data-content-block="code-studio">
+  <div class="container chat-container">
+    <header class="chat-hero">
+      <div class="chat-identity">
+        <span class="chat-logo" aria-hidden="true">A</span>
+        <div>
+          <p class="chat-greeting">Build faster, automate confidently.</p>
+          <h1>Automation Studio</h1>
+          <p>
+            Provide context, select your preferred language, and let Aserras craft scripts, APIs, and workflows tailored to your stack.
+          </p>
+        </div>
+      </div>
+    </header>
+    <div class="chat-panel code-panel">
+      <div class="code-output" data-code-output>
+        <pre class="code-output__placeholder" data-code-empty>Generated snippets and explanations appear here.</pre>
+      </div>
+      <p class="chat-status" data-code-status data-state="idle" role="status" aria-live="polite">
+        Outputs stay in sync with your workspace history.
+      </p>
+      <form id="code-form" class="chat-composer code-composer" autocomplete="off" novalidate data-code-form>
+        <label class="sr-only" for="code-instructions">Instructions</label>
+        <textarea
+          id="code-instructions"
+          name="instructions"
+          rows="3"
+          placeholder="Explain the automation, script, or component you need..."
+          data-code-input
+          spellcheck="true"
+          required
+        ></textarea>
+        <div class="code-controls">
+          <label class="sr-only" for="code-language">Language</label>
+          <input
+            class="field__input"
+            id="code-language"
+            name="language"
+            type="text"
+            placeholder="Language (optional)"
+            data-code-language
+          />
+          <button class="btn primary" type="submit" data-code-generate disabled>Generate</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    window.aserrasUI?.initCodeStudio?.();
+  });
+</script>
+{% endblock %}

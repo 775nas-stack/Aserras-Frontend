@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="section history-page" data-content-block="history">
+  <div class="container narrow">
+    <header class="section-header">
+      <p class="eyebrow">Activity</p>
+      <h1>Your private history</h1>
+      <p class="muted">Revisit conversations, regenerate outputs, and keep track of everything created with Aserras.</p>
+    </header>
+    {% if warning %}
+      <p class="status status--warning">{{ warning }}</p>
+    {% endif %}
+    <div class="history-archive" id="history-archive" data-history-list data-empty-state="Prompts and generations will appear here as you explore.">
+      {% if history %}
+        {% for item in history %}
+          <article class="history-card" data-history-item data-history-id="{{ item.id or loop.index }}">
+            <header class="history-card__header">
+              <span class="history-card__type">{{ item.type or item.mode or 'Chat' }}</span>
+              <time class="history-card__time" datetime="{{ item.created_at or item.timestamp }}">{{ item.created_at or item.timestamp or '' }}</time>
+            </header>
+            <div class="history-card__body">
+              <h2>{{ item.title or item.prompt or 'Untitled generation' }}</h2>
+              <p>{{ item.summary or item.response or item.text or '' }}</p>
+            </div>
+            <footer class="history-card__footer">
+              <button
+                class="btn btn--ghost"
+                type="button"
+                data-history-action="rerun"
+                data-history-prompt="{{ (item.prompt or item.text or '') | e }}"
+              >
+                Re-run
+              </button>
+              <button class="btn btn--outline" type="button" data-history-action="details">Details</button>
+            </footer>
+          </article>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    window.aserrasUI?.initHistoryPage?.();
+  });
+</script>
+{% endblock %}

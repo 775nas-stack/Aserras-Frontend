@@ -13,6 +13,9 @@
           </p>
         </div>
       </div>
+      {% if warning %}
+        <p class="banner banner--warning">{{ warning }}</p>
+      {% endif %}
     </header>
 
     <div class="chat-panel">
@@ -31,6 +34,15 @@
         Messages you send are saved instantly and remain available across your workspace.
       </p>
       <form id="chat-form" class="chat-composer" autocomplete="off" novalidate>
+        {% if models %}
+          <label class="sr-only" for="chat-model">Model</label>
+          <select id="chat-model" class="chat-model" data-chat-model>
+            <option value="">Default model</option>
+            {% for model in models %}
+              <option value="{{ model.id or model.slug or model.name }}">{{ model.name or model.label }}</option>
+            {% endfor %}
+          </select>
+        {% endif %}
         <label class="sr-only" for="chat-input">Message</label>
         <textarea
           id="chat-input"
