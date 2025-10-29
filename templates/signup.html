@@ -13,37 +13,14 @@
       <button class="provider-button" type="button" data-auth-provider="github" data-content-key="signup-provider-github">Continue with GitHub</button>
       <p class="muted small" data-content-key="signup-provider-note">Sign-in is handled securely by Aserras.</p>
     </div>
-    <form
-      id="signup-form"
-      class="auth-form"
-      data-auth-form="signup"
-      method="post"
-      action="/signup"
-      novalidate
-    >
+    <form id="signup-form" class="auth-form" data-auth-form="signup" novalidate>
       <div class="field">
         <label class="field__label" for="signup-name">Full Name</label>
-        <input
-          class="field__input"
-          id="signup-name"
-          name="name"
-          type="text"
-          autocomplete="name"
-          required
-          value="{{ name or '' }}"
-        />
+        <input class="field__input" id="signup-name" name="fullName" type="text" autocomplete="name" required />
       </div>
       <div class="field">
         <label class="field__label" for="signup-email">Email Address</label>
-        <input
-          class="field__input"
-          id="signup-email"
-          name="email"
-          type="email"
-          autocomplete="email"
-          required
-          value="{{ email or '' }}"
-        />
+        <input class="field__input" id="signup-email" name="email" type="email" autocomplete="email" required />
       </div>
       <div class="field-grid">
         <div class="field field--with-toggle">
@@ -62,14 +39,7 @@
         <span>I agree to the <a class="link" href="/terms" target="_blank">Terms</a> &amp; <a class="link" href="/privacy" target="_blank">Privacy</a>.</span>
       </label>
       <button class="btn btn--primary" type="submit" data-content-key="signup-submit">Create Account</button>
-      <p
-        class="form-feedback"
-        role="status"
-        data-content-key="signup-feedback"
-        {% if not error %}hidden{% endif %}
-      >
-        {{ error or '' }}
-      </p>
+      <p class="form-feedback" role="status" hidden data-content-key="signup-feedback"></p>
     </form>
     <footer class="auth-card__footer">
       <p data-content-key="signup-footer">Already have an account? <a class="link" href="/login">Sign in</a></p>

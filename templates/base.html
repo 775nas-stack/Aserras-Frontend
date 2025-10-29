@@ -7,9 +7,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
     <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}" />
   </head>
-  {% set raw_theme = request.cookies.get('aserras_theme', 'dark') %}
-  {% set active_theme = 'light' if raw_theme == 'light' else 'dark' %}
-  <body class="theme-{{ active_theme }}" data-theme="{{ active_theme }}">
+  <body class="theme-dark" data-theme="dark">
     <header class="site-header">
       <div class="container header-inner">
         <a class="brand" href="/">Aserras</a>
@@ -41,14 +39,14 @@
               <li data-auth-visible="signed-in" hidden>
                 <a href="/chat" class="{% if nav_active == 'chat' %}is-active{% endif %}">Chat</a>
               </li>
-              <li data-auth-visible="signed-in" hidden>
-                <a href="/image" class="{% if nav_active == 'image' %}is-active{% endif %}">Image</a>
+              <li class="nav-placeholder" data-auth-visible="signed-in" hidden>
+                <span>Video</span>
               </li>
-              <li data-auth-visible="signed-in" hidden>
-                <a href="/code" class="{% if nav_active == 'code' %}is-active{% endif %}">Code</a>
+              <li class="nav-placeholder" data-auth-visible="signed-in" hidden>
+                <span>Image</span>
               </li>
-              <li data-auth-visible="signed-in" hidden>
-                <a href="/history" class="{% if nav_active == 'history' %}is-active{% endif %}">History</a>
+              <li class="nav-placeholder" data-auth-visible="signed-in" hidden>
+                <span>Code</span>
               </li>
               <li class="nav-auth nav-auth--login" data-auth-visible="signed-out">
                 <a
@@ -118,33 +116,18 @@
     </footer>
 
     <script>
-      (function () {
-        const activeTheme = "{{ active_theme }}";
-        const isAuthenticated = {{ 'true' if user else 'false' }};
-        window.ASERRAS_CONFIG = {
-          baseApiUrl: "",
-          endpoints: {
-            authLogin: "/api/auth/login",
-            authSignup: "/api/auth/signup",
-            authLogout: "/logout",
-            chatSend: "/api/chat",
-            imageGenerate: "/api/image",
-            codeGenerate: "/api/code",
-            userHistory: "/api/history",
-            settingsProfile: "/api/settings/profile",
-            settingsTheme: "/api/settings/theme",
-          },
-          brain: {
-            base: "{{ settings.main_brain_base_url }}",
-            pricing: "{{ settings.brain_api_pricing }}",
-            models: "{{ settings.brain_api_content_policies }}",
-          }
-        };
-        window.ASERRAS_UI_STATE = Object.assign({}, window.ASERRAS_UI_STATE || {}, {
-          isAuthenticated,
-          theme: activeTheme,
-        });
-      })();
+      window.ASERRAS_CONFIG = {
+        baseApiUrl: "{{ settings.main_brain_base_url }}",
+        endpoints: {
+          authLogin: "{{ settings.brain_api_auth_login }}",
+          authSignup: "{{ settings.brain_api_auth_signup }}",
+          paymentCreate: "{{ settings.brain_api_payment_create }}",
+          chatSend: "{{ settings.brain_api_chat_send }}",
+          userHistory: "{{ settings.brain_api_user_history }}",
+          contentPolicies: "{{ settings.brain_api_content_policies }}",
+          pricing: "{{ settings.brain_api_pricing }}"
+        }
+      };
     </script>
     <script src="{{ url_for('static', path='/js/config.js') }}" defer></script>
     <script src="{{ url_for('static', path='/js/main.js') }}" defer></script>

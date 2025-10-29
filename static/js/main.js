@@ -7,7 +7,6 @@
     paymentMethodsEnabled: ['google_pay', 'paypal', 'apple_pay', 'card'],
   };
   const uiState = window.ASERRAS_UI_STATE || { isAuthenticated: false };
-  const endpoints = config.endpoints || {};
   const baseApiUrl = (config.baseApiUrl || '').replace(/\/$/, '');
   const THEME_STORAGE_KEY = 'aserras-theme';
   const DEFAULT_THEME = 'dark';
@@ -26,67 +25,38 @@
       : safeGetStoredAuthState();
   persistAuthState(uiState.isAuthenticated);
 
-  const initialTheme =
-    safeGetStoredTheme() ||
-    uiState.theme ||
-    (document.body ? document.body.getAttribute('data-theme') : null) ||
-    DEFAULT_THEME;
-  applyTheme(initialTheme, { persist: false });
+  applyTheme(safeGetStoredTheme() || DEFAULT_THEME, { persist: false });
 
   const api = {
-    async request(pathOrUrl, options = {}) {
-      const candidates = [];
-      if (/^https?:/i.test(pathOrUrl)) {
-        candidates.push(pathOrUrl);
-      } else {
-        const trimmed = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`;
-        if (baseApiUrl) {
-          candidates.push(`${baseApiUrl}${trimmed}`);
-        }
-        candidates.push(trimmed);
-      }
+    async request(path, options = {}) {
+      const targets = baseApiUrl
+        ? [`${baseApiUrl}${path}`, path]
+        : [path];
 
       let lastError;
 
-      for (const url of candidates) {
+      for (const url of targets) {
         try {
-          const headers = {
-            Accept: 'application/json',
-            ...(options.headers || {}),
-          };
-          if (options.body && !headers['Content-Type']) {
-            headers['Content-Type'] = 'application/json';
-          }
-
           const response = await fetch(url, {
-            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(options.headers || {}),
+            },
             ...options,
-            headers,
           });
 
-          const contentType = response.headers.get('content-type') || '';
-          const isJson = contentType.includes('application/json');
-          const payload = isJson ? await response.json().catch(() => ({})) : await response.text();
-
           if (!response.ok) {
-            const message = (payload && payload.detail) || payload?.message || payload?.error || 'Request failed';
-            throw new Error(message);
+            const detail = await response.json().catch(() => ({}));
+            throw new Error(detail.detail || 'Request failed');
           }
 
-          return payload;
+          return response.json();
         } catch (error) {
           lastError = error;
         }
       }
 
       throw lastError || new Error('Unable to reach service');
-    },
-
-    post(pathOrUrl, data = {}) {
-      return this.request(pathOrUrl, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
     },
   };
 
@@ -290,7 +260,6 @@
     document.body.classList.remove('theme-light', 'theme-dark');
     document.body.classList.add(`theme-${theme}`);
     document.body.setAttribute('data-theme', theme);
-    uiState.theme = theme;
     updateThemeToggles(theme);
     if (persist) {
       try {
@@ -309,9 +278,6 @@
       toggle.addEventListener('click', () => {
         const nextTheme = getCurrentTheme() === 'dark' ? 'light' : 'dark';
         applyTheme(nextTheme);
-        api.post(endpoints.settingsTheme || '/api/settings/theme', { theme: nextTheme }).catch((error) => {
-          console.warn('[Aserras] Theme preference could not be saved.', error);
-        });
       });
     });
   }
@@ -431,12 +397,8 @@
       });
 
       panel.querySelectorAll('[data-user-action="signout"]').forEach((item) => {
-        item.addEventListener('click', async () => {
-          try {
-            await api.post(endpoints.authLogout || '/logout');
-          } catch (error) {
-            console.warn('[Aserras] Logout request failed:', error);
-          }
+        item.addEventListener('click', () => {
+          console.info('[Aserras] Signing out and returning to the login screen.');
           window.aserrasUI?.setAuthState?.(false);
           window.location.href = '/login';
         });
@@ -471,22 +433,16 @@
     return copy;
   }
 
-  async function loginUser(formData, feedback) {
-    try {
-      setFeedback(feedback, 'Signing you in...');
-      const result = await api.post(endpoints.authLogin || '/api/auth/login', {
-        email: formData.email,
-        password: formData.password,
-      });
-      window.aserrasUI?.setAuthState?.(true);
-      setFeedback(feedback, 'Welcome back. Redirecting to your dashboard...');
-      window.location.href = (result && result.redirect) || '/dashboard';
-    } catch (error) {
-      setFeedback(feedback, error.message || 'Unable to sign in. Please try again.', true);
-    }
+  function loginUser(formData, feedback) {
+    setFeedback(feedback, 'Welcome back. Redirecting to your dashboard...');
+    console.info('[Aserras] Login submission captured.', scrubSensitive(formData));
+    window.aserrasUI?.setAuthState?.(true);
+    setTimeout(() => {
+      window.location.href = '/dashboard';
+    }, 600);
   }
 
-  async function registerUser(formData, feedback) {
+  function registerUser(formData, feedback) {
     if (formData.password !== formData.confirmPassword) {
       setFeedback(feedback, 'Passwords need to match before we can continue.', true);
       return;
@@ -497,19 +453,12 @@
       return;
     }
 
-    try {
-      setFeedback(feedback, `Creating your workspace, ${formData.name || formData.email}...`);
-      const result = await api.post(endpoints.authSignup || '/api/auth/signup', {
-        name: formData.name || formData.fullName,
-        email: formData.email,
-        password: formData.password,
-      });
-      window.aserrasUI?.setAuthState?.(true);
-      setFeedback(feedback, 'Account ready. Redirecting to your dashboard...');
-      window.location.href = (result && result.redirect) || '/dashboard';
-    } catch (error) {
-      setFeedback(feedback, error.message || 'Unable to create your account right now.', true);
-    }
+    setFeedback(feedback, `Welcome aboard, ${formData.fullName || formData.email}! Setting up your workspace...`);
+    console.info('[Aserras] Signup submission captured.', scrubSensitive(formData));
+    window.aserrasUI?.setAuthState?.(true);
+    setTimeout(() => {
+      window.location.href = '/dashboard';
+    }, 800);
   }
 
   function requestPasswordReset(formData, feedback) {
@@ -520,11 +469,12 @@
   function authWith(provider, feedback) {
     if (!provider) return;
     const label = formatLabelFromKey(provider);
-    setFeedback(
-      feedback,
-      `${label} sign-in will be available soon. In the meantime, continue with your email account.`,
-      true,
-    );
+    setFeedback(feedback, `${label} sign-in is connecting. You'll arrive at your dashboard momentarily.`);
+    console.info(`[Aserras] ${label} provider selected.`);
+    setTimeout(() => {
+      window.aserrasUI?.setAuthState?.(true);
+      window.location.href = '/dashboard';
+    }, 800);
   }
 
   function initPasswordToggles(scope = document) {
@@ -571,23 +521,17 @@
         });
       });
 
-      form.addEventListener('submit', async (event) => {
+      form.addEventListener('submit', (event) => {
         event.preventDefault();
-        if (form.dataset.submitting === 'true') return;
-        form.dataset.submitting = 'true';
         const formData = Object.fromEntries(new FormData(form).entries());
         const type = form.dataset.authForm;
 
-        try {
-          if (type === 'login') {
-            await loginUser(formData, feedback);
-          } else if (type === 'signup') {
-            await registerUser(formData, feedback);
-          } else if (type === 'forgot') {
-            requestPasswordReset(formData, feedback);
-          }
-        } finally {
-          form.dataset.submitting = 'false';
+        if (type === 'login') {
+          loginUser(formData, feedback);
+        } else if (type === 'signup') {
+          registerUser(formData, feedback);
+        } else if (type === 'forgot') {
+          requestPasswordReset(formData, feedback);
         }
       });
     });
@@ -611,34 +555,8 @@
 
   async function loadHistory(into) {
     if (!into) return [];
-    try {
-      const data = await api.request(endpoints.userHistory || '/api/history');
-      const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-      return items;
-    } catch (error) {
-      console.warn('[Aserras] Unable to load history:', error);
-      return [];
-    }
-  }
-
-  function extractChatText(result) {
-    if (!result) return '';
-    if (typeof result === 'string') return result;
-    if (result.reply) return result.reply;
-    if (result.message) return result.message;
-    if (result.text) return result.text;
-    if (result.output) return result.output;
-    if (Array.isArray(result.choices) && result.choices.length) {
-      const choice = result.choices[0];
-      return choice?.message?.content || choice?.text || '';
-    }
-    if (Array.isArray(result.responses) && result.responses.length) {
-      return result.responses[0]?.content || '';
-    }
-    if (result.data && typeof result.data === 'object') {
-      return result.data.text || result.data.content || '';
-    }
-    return '';
+    into.innerHTML = '';
+    return [];
   }
 
   function initChat() {
@@ -648,7 +566,6 @@
     const sendButton = document.querySelector('[data-chat-send]');
     const status = document.querySelector('[data-chat-status]');
     const emptyState = transcript?.querySelector('[data-chat-empty]') || null;
-    const modelSelect = document.querySelector('[data-chat-model]');
 
     if (!transcript || !form || !input || !sendButton) return;
 
@@ -700,17 +617,40 @@
       sendButton.disabled = input.value.trim().length === 0;
     };
 
+    const setStatus = (state, text) => {
+      if (!status) return;
+      status.dataset.state = state;
+      status.textContent = text;
+    };
+
+    const setSending = (sending) => {
+      form.dataset.sending = sending ? 'true' : 'false';
+      if (sending) {
+        sendButton.disabled = true;
+        sendButton.setAttribute('aria-busy', 'true');
+      } else {
+        sendButton.removeAttribute('aria-busy');
+        updateSendState();
+      }
+    };
+
+    const normaliseReply = (payload) => {
+      if (!payload) return '';
+      if (typeof payload === 'string') return payload;
+      if (Array.isArray(payload)) {
+        return payload.filter(Boolean).map(String).join('\n\n');
+      }
+      if (typeof payload === 'object') {
+        const candidates = [payload.reply, payload.message, payload.text, payload.response];
+        const match = candidates.find((value) => typeof value === 'string' && value.trim().length);
+        if (match) return match;
+      }
+      return '';
+    };
+
     toggleEmptyState();
     autoresize();
     updateSendState();
-
-    const params = new URLSearchParams(window.location.search);
-    const presetPrompt = params.get('prompt');
-    if (presetPrompt) {
-      input.value = presetPrompt;
-      autoresize();
-      updateSendState();
-    }
 
     input.addEventListener('input', () => {
       autoresize();
@@ -728,7 +668,6 @@
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      if (form.dataset.submitting === 'true') return;
       const message = input.value.trim();
       if (!message) return;
 
@@ -736,381 +675,41 @@
       input.value = '';
       autoresize();
       updateSendState();
-
-      form.dataset.submitting = 'true';
-      input.disabled = true;
-      sendButton.disabled = true;
-
-      if (status) {
-        status.textContent = 'Aserras is composing a response...';
-        status.dataset.state = 'loading';
-      }
+      setStatus('queued', 'Syncing with the Aserras Brain…');
+      setSending(true);
 
       try {
-        const payload = { prompt: message };
-        const model = modelSelect?.value?.trim();
-        if (model) payload.model = model;
-        const result = await api.post(endpoints.chatSend || '/api/chat', payload);
-        const reply = extractChatText(result) || 'Aserras responded without additional details.';
-        appendMessage('ai', reply);
-        if (status) {
-          status.textContent = 'Response delivered and saved to your workspace.';
-          status.dataset.state = 'success';
-        }
-      } catch (error) {
-        if (status) {
-          status.textContent = error.message || 'Unable to reach Aserras Brain right now.';
-          status.dataset.state = 'error';
-        }
-      } finally {
-        form.dataset.submitting = 'false';
-        input.disabled = false;
-        sendButton.disabled = false;
-        updateSendState();
-      }
-    });
-  }
-
-  function extractImageUrls(result) {
-    const urls = [];
-    if (!result) return urls;
-    const maybeAdd = (entry) => {
-      if (!entry) return;
-      if (typeof entry === 'string') {
-        urls.push(entry);
-        return;
-      }
-      if (entry.url) {
-        urls.push(entry.url);
-      } else if (entry.b64_json) {
-        urls.push(`data:image/png;base64,${entry.b64_json}`);
-      }
-    };
-
-    if (Array.isArray(result.images)) {
-      result.images.forEach(maybeAdd);
-    }
-    if (Array.isArray(result.data)) {
-      result.data.forEach(maybeAdd);
-    }
-    if (result.url || result.image) {
-      maybeAdd(result.url || result.image);
-    }
-    return urls;
-  }
-
-  function initImageStudio() {
-    const form = document.querySelector('[data-image-form]');
-    const gallery = document.querySelector('[data-image-gallery]');
-    const input = form?.querySelector('[data-image-input]');
-    const sizeSelect = form?.querySelector('[data-image-size]');
-    const generateButton = form?.querySelector('[data-image-generate]');
-    const status = document.querySelector('[data-image-status]');
-    const emptyState = gallery?.querySelector('[data-image-empty]') || null;
-
-    if (!form || !gallery || !input || !generateButton) return;
-    if (form.dataset.initialised === 'true') return;
-    form.dataset.initialised = 'true';
-
-    const toggleEmpty = (hasImages) => {
-      if (emptyState) {
-        emptyState.hidden = hasImages;
-      }
-    };
-
-    const updateButton = () => {
-      generateButton.disabled = input.value.trim().length === 0 || form.dataset.submitting === 'true';
-    };
-
-    input.addEventListener('input', updateButton);
-    updateButton();
-
-    const addImageCard = (src, prompt) => {
-      const figure = document.createElement('figure');
-      figure.className = 'image-card';
-
-      const img = document.createElement('img');
-      img.src = src;
-      img.alt = prompt || 'Generated image';
-      img.loading = 'lazy';
-      figure.appendChild(img);
-
-      if (prompt) {
-        const caption = document.createElement('figcaption');
-        caption.textContent = prompt;
-        figure.appendChild(caption);
-      }
-
-      const actions = document.createElement('div');
-      actions.className = 'image-card__actions';
-
-      const download = document.createElement('button');
-      download.type = 'button';
-      download.className = 'btn btn--outline';
-      download.textContent = 'Download';
-      download.addEventListener('click', () => {
-        downloadImage(src, prompt || 'aserras-image');
-      });
-      actions.appendChild(download);
-
-      figure.appendChild(actions);
-      gallery.prepend(figure);
-      toggleEmpty(true);
-    };
-
-    const downloadImage = (src, name) => {
-      const link = document.createElement('a');
-      link.href = src;
-      link.download = `${name.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    };
-
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      if (form.dataset.submitting === 'true') return;
-      const prompt = input.value.trim();
-      if (!prompt) return;
-
-      form.dataset.submitting = 'true';
-      input.disabled = true;
-      generateButton.disabled = true;
-      if (status) {
-        status.textContent = 'Generating artwork...';
-        status.dataset.state = 'loading';
-      }
-
-      try {
-        const result = await api.post(endpoints.imageGenerate || '/api/image', {
-          prompt,
-          size: sizeSelect?.value,
+        const response = await fetch('/api/chat/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({ message }),
         });
-        const images = extractImageUrls(result);
-        if (!images.length) {
-          throw new Error('No image returned from the server.');
+
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        const payload = isJson ? await response.json() : await response.text();
+
+        if (!response.ok) {
+          const detail = typeof payload === 'string'
+            ? payload
+            : payload?.detail || payload?.message || 'The Aserras Brain could not process your request.';
+          throw new Error(detail);
         }
-        images.forEach((src) => addImageCard(src, prompt));
-        input.value = '';
-        updateButton();
-        if (status) {
-          status.textContent = 'Image ready. Saved to your workspace history.';
-          status.dataset.state = 'success';
-        }
+
+        const reply = normaliseReply(payload) || 'The Brain acknowledged your message but did not return details.';
+        appendMessage('ai', reply.trim());
+        setStatus('delivered', 'The Aserras Brain responded. Continue the conversation anytime.');
       } catch (error) {
-        if (status) {
-          status.textContent = error.message || 'Unable to generate an image right now.';
-          status.dataset.state = 'error';
-        }
+        const fallback = error?.message || 'We were unable to contact the Aserras Brain. Please try again shortly.';
+        appendMessage('ai', fallback);
+        setStatus('error', fallback);
       } finally {
-        form.dataset.submitting = 'false';
-        input.disabled = false;
-        generateButton.disabled = false;
-        updateButton();
+        setSending(false);
       }
     });
-  }
-
-  function extractCodeContent(result) {
-    if (!result) return '';
-    if (typeof result === 'string') return result;
-    if (result.code) return result.code;
-    if (result.script) return result.script;
-    if (result.output) return result.output;
-    if (result.text) return result.text;
-    if (Array.isArray(result.choices) && result.choices.length) {
-      const choice = result.choices[0];
-      return choice?.message?.content || choice?.text || '';
-    }
-    if (result.data && typeof result.data === 'object') {
-      return result.data.code || result.data.text || '';
-    }
-    return '';
-  }
-
-  function initCodeStudio() {
-    const form = document.querySelector('[data-code-form]');
-    const output = document.querySelector('[data-code-output]');
-    const textarea = form?.querySelector('[data-code-input]');
-    const languageInput = form?.querySelector('[data-code-language]');
-    const generateButton = form?.querySelector('[data-code-generate]');
-    const status = document.querySelector('[data-code-status]');
-    const emptyState = output?.querySelector('[data-code-empty]') || null;
-
-    if (!form || !output || !textarea || !generateButton) return;
-    if (form.dataset.initialised === 'true') return;
-    form.dataset.initialised = 'true';
-
-    const updateButton = () => {
-      generateButton.disabled = textarea.value.trim().length === 0 || form.dataset.submitting === 'true';
-    };
-
-    const renderCode = (code) => {
-      output.innerHTML = '';
-      const pre = document.createElement('pre');
-      pre.className = 'code-output__block';
-      pre.textContent = code;
-      output.appendChild(pre);
-      const toolbar = document.createElement('div');
-      toolbar.className = 'code-output__actions';
-      const copy = document.createElement('button');
-      copy.type = 'button';
-      copy.className = 'btn btn--outline';
-      copy.textContent = 'Copy code';
-      copy.addEventListener('click', () => {
-        navigator.clipboard?.writeText(code).then(() => {
-          copy.textContent = 'Copied!';
-          setTimeout(() => {
-            copy.textContent = 'Copy code';
-          }, 1200);
-        });
-      });
-      toolbar.appendChild(copy);
-      output.appendChild(toolbar);
-    };
-
-    textarea.addEventListener('input', updateButton);
-    updateButton();
-
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      if (form.dataset.submitting === 'true') return;
-      const instructions = textarea.value.trim();
-      if (!instructions) return;
-
-      form.dataset.submitting = 'true';
-      textarea.disabled = true;
-      generateButton.disabled = true;
-      if (status) {
-        status.textContent = 'Generating code...';
-        status.dataset.state = 'loading';
-      }
-
-      try {
-        const result = await api.post(endpoints.codeGenerate || '/api/code', {
-          instructions,
-          language: languageInput?.value?.trim(),
-        });
-        const code = extractCodeContent(result);
-        if (!code) {
-          throw new Error('No code was returned.');
-        }
-        if (emptyState) {
-          emptyState.remove();
-        }
-        renderCode(code);
-        if (status) {
-          status.textContent = 'Automation ready. Saved to your history.';
-          status.dataset.state = 'success';
-        }
-      } catch (error) {
-        if (status) {
-          status.textContent = error.message || 'Unable to generate code right now.';
-          status.dataset.state = 'error';
-        }
-      } finally {
-        form.dataset.submitting = 'false';
-        textarea.disabled = false;
-        generateButton.disabled = false;
-        updateButton();
-      }
-    });
-  }
-
-  function initHistoryPage() {
-    const container = document.querySelector('[data-history-list]');
-    if (!container) return;
-    if (container.dataset.initialised === 'true') return;
-    container.dataset.initialised = 'true';
-    const emptyState = container.dataset.emptyState || 'Start creating to see your history.';
-
-    const renderItems = (items) => {
-      container.innerHTML = '';
-      if (!items.length) {
-        const empty = document.createElement('p');
-        empty.className = 'muted';
-        empty.textContent = emptyState;
-        container.appendChild(empty);
-        return;
-      }
-
-      items.forEach((item) => {
-        const card = document.createElement('article');
-        card.className = 'history-card';
-        card.dataset.historyId = item.id || '';
-
-        const header = document.createElement('header');
-        header.className = 'history-card__header';
-        const type = document.createElement('span');
-        type.className = 'history-card__type';
-        type.textContent = item.type || item.mode || 'Chat';
-        const time = document.createElement('time');
-        time.className = 'history-card__time';
-        const timestamp = item.created_at || item.timestamp;
-        if (timestamp) {
-          time.dateTime = timestamp;
-          time.textContent = formatTimestamp(timestamp);
-        }
-        header.appendChild(type);
-        header.appendChild(time);
-        card.appendChild(header);
-
-        const body = document.createElement('div');
-        body.className = 'history-card__body';
-        const title = document.createElement('h2');
-        title.textContent = item.title || item.prompt || 'Untitled generation';
-        const summary = document.createElement('p');
-        summary.textContent = item.summary || item.response || item.text || '';
-        body.appendChild(title);
-        body.appendChild(summary);
-        card.appendChild(body);
-
-        const footer = document.createElement('footer');
-        footer.className = 'history-card__footer';
-        const rerun = document.createElement('button');
-        rerun.type = 'button';
-        rerun.className = 'btn btn--ghost';
-        rerun.dataset.historyAction = 'rerun';
-        rerun.dataset.historyPrompt = item.prompt || item.text || '';
-        rerun.textContent = 'Re-run';
-        const details = document.createElement('button');
-        details.type = 'button';
-        details.className = 'btn btn--outline';
-        details.dataset.historyAction = 'details';
-        details.textContent = 'Details';
-        footer.appendChild(rerun);
-        footer.appendChild(details);
-        card.appendChild(footer);
-
-        container.appendChild(card);
-      });
-    };
-
-    const refreshHistory = async () => {
-      container.innerHTML = '';
-      const loading = document.createElement('p');
-      loading.className = 'muted';
-      loading.textContent = 'Fetching your recent activity...';
-      container.appendChild(loading);
-
-      const items = await loadHistory(container);
-      renderItems(items);
-    };
-
-    container.addEventListener('click', (event) => {
-      const target = event.target.closest('[data-history-action]');
-      if (!target) return;
-      const action = target.dataset.historyAction;
-      const prompt = target.dataset.historyPrompt || '';
-      if (action === 'rerun' && prompt) {
-        window.location.href = `/chat?prompt=${encodeURIComponent(prompt)}`;
-      }
-      if (action === 'details') {
-        alert('Detailed history view is coming soon.');
-      }
-    });
-
-    refreshHistory();
   }
 
   function startCheckout(method, planId, feedback) {
@@ -1177,22 +776,16 @@
 
         const role = document.createElement('span');
         role.className = 'history-row__role';
-        const actor = message.role || message.actor || message.author;
-        role.textContent = actor === 'ai' ? 'AI' : 'You';
+        role.textContent = message.role === 'ai' ? 'AI' : 'You';
 
         const summary = document.createElement('span');
         summary.className = 'history-row__text';
-        summary.textContent = message.title || message.summary || message.prompt || message.text || 'Conversation update';
+        summary.textContent = message.text;
 
         const meta = document.createElement('time');
         meta.className = 'history-row__time';
-        const timestamp = message.created_at || message.timestamp;
-        if (timestamp) {
-          meta.dateTime = timestamp;
-          meta.textContent = formatTimestamp(timestamp);
-        } else {
-          meta.textContent = '';
-        }
+        meta.dateTime = message.timestamp;
+        meta.textContent = formatTimestamp(message.timestamp);
 
         row.appendChild(role);
         row.appendChild(summary);
@@ -1203,28 +796,18 @@
     }
 
     async function refreshDashboard() {
+      updateStats([]);
+      renderHistory([]);
       if (historyList) {
         historyList.innerHTML = '';
-        const loading = document.createElement('p');
-        loading.className = 'muted';
-        loading.textContent = 'Syncing your latest activity...';
-        historyList.appendChild(loading);
+        const notice = document.createElement('p');
+        notice.className = 'muted';
+        notice.textContent =
+          historyList.dataset.emptyState ||
+          'History updates instantly as new conversations begin.';
+        historyList.appendChild(notice);
       }
-
-      try {
-        const items = await loadHistory(historyList);
-        updateStats(items);
-        renderHistory(items);
-      } catch (error) {
-        console.warn('[Aserras] Unable to refresh dashboard history:', error);
-        if (historyList) {
-          historyList.innerHTML = '';
-          const notice = document.createElement('p');
-          notice.className = 'muted';
-          notice.textContent = 'History is unavailable right now. Please try again soon.';
-          historyList.appendChild(notice);
-        }
-      }
+      console.info('[Aserras] Dashboard refresh queued.');
     }
 
     function handleAction(event, element) {
@@ -1242,10 +825,9 @@
           window.location.href = '/pricing';
           break;
         case 'signout':
-          api.post(endpoints.authLogout || '/logout').finally(() => {
-            window.aserrasUI?.setAuthState?.(false);
-            window.location.href = '/login';
-          });
+          console.info('[Aserras] Signing out and returning to the login screen.');
+          window.aserrasUI?.setAuthState?.(false);
+          window.location.href = '/login';
           break;
         case 'language':
           console.info('[Aserras] Language preference captured.', element.value);
@@ -1277,43 +859,6 @@
     if (!settingsPanel) return;
 
     initThemeControls();
-
-    const profileForm = settingsPanel.querySelector('[data-settings-form="profile"]');
-    if (profileForm && profileForm.dataset.initialised !== 'true') {
-      profileForm.dataset.initialised = 'true';
-      const feedback = profileForm.querySelector('[data-settings-feedback]');
-      profileForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        if (profileForm.dataset.submitting === 'true') return;
-        const formData = Object.fromEntries(new FormData(profileForm).entries());
-        const payload = {
-          name: (formData.name || '').trim(),
-          language: (formData.language || '').trim() || null,
-          model: (formData.model || '').trim() || null,
-        };
-        if (!payload.name) {
-          setFeedback(feedback, 'Please enter a display name.', true);
-          return;
-        }
-
-        profileForm.dataset.submitting = 'true';
-        setFeedback(feedback, 'Saving your preferences...');
-
-        try {
-          await api.post(endpoints.settingsProfile || '/api/settings/profile', payload);
-          setFeedback(feedback, 'Preferences updated successfully.');
-        } catch (error) {
-          setFeedback(
-            feedback,
-            error.message || 'We could not save your changes right now. Please try again soon.',
-            true,
-          );
-        } finally {
-          profileForm.dataset.submitting = 'false';
-        }
-      });
-    }
-
     console.info('[Aserras] Settings preview loaded.');
   }
 
@@ -1325,9 +870,6 @@
     initPricing,
     initCheckout,
     initChat,
-    initImageStudio,
-    initCodeStudio,
-    initHistoryPage,
     initDashboardShell,
     initSettingsPreview,
     initPasswordToggles,

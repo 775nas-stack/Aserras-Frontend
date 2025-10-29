@@ -13,25 +13,10 @@
       <button class="provider-button" type="button" data-auth-provider="github" data-content-key="login-provider-github">Continue with GitHub</button>
       <p class="muted small" data-content-key="login-provider-note">Sign-in is handled securely by Aserras.</p>
     </div>
-    <form
-      id="login-form"
-      class="auth-form"
-      data-auth-form="login"
-      method="post"
-      action="/login"
-      novalidate
-    >
+    <form id="login-form" class="auth-form" data-auth-form="login" novalidate>
       <div class="field">
         <label class="field__label" for="login-email">Email Address</label>
-        <input
-          class="field__input"
-          id="login-email"
-          name="email"
-          type="email"
-          autocomplete="email"
-          required
-          value="{{ email or '' }}"
-        />
+        <input class="field__input" id="login-email" name="email" type="email" autocomplete="email" required />
       </div>
       <div class="field field--with-toggle">
         <label class="field__label" for="login-password">Password</label>
@@ -42,9 +27,7 @@
         <a class="link" href="/forgot">Forgot password?</a>
       </div>
       <button class="btn btn--primary" type="submit" data-content-key="login-submit">Sign In</button>
-      <p class="form-feedback" role="status" {% if not error %}hidden{% endif %}>
-        {{ error or '' }}
-      </p>
+      <p class="form-feedback" role="status" hidden></p>
     </form>
     <footer class="auth-card__footer">
       <p data-content-key="login-footer">Don’t have an account? <a class="link" href="/signup">Sign up</a></p>

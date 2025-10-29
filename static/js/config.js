@@ -12,7 +12,6 @@
   window.ASERRAS_UI_CONFIG = { ...defaults, ...existingConfig };
   window.ASERRAS_UI_STATE = {
     isAuthenticated: false,
-    theme: 'dark',
     ...existingState,
   };
 })();

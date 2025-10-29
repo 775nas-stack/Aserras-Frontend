@@ -6,9 +6,6 @@
     <p class="muted" data-content-key="settings-subtitle">
       Personalise how Aserras adapts to your workflow and presentation preferences.
     </p>
-    {% if warning %}
-      <p class="status status--warning">{{ warning }}</p>
-    {% endif %}
     <div class="settings-panel">
       <div class="setting-row" data-content-slot="settings-theme">
         <div>
@@ -24,58 +21,11 @@
           <h2 data-content-key="settings-language-title">Language</h2>
           <p data-content-key="settings-language-body">Select the default language for prompts and the interface.</p>
         </div>
-        <form class="settings-form" data-settings-form="profile">
-          <div class="field">
-            <label class="field__label" for="settings-name">Display name</label>
-            <input
-              class="field__input"
-              id="settings-name"
-              name="name"
-              type="text"
-              value="{{ user.name or '' }}"
-              autocomplete="name"
-              required
-            />
-          </div>
-          <div class="field">
-            <label class="field__label" for="settings-email">Email</label>
-            <input
-              class="field__input"
-              id="settings-email"
-              name="email"
-              type="email"
-              value="{{ user.email or '' }}"
-              autocomplete="email"
-              readonly
-            />
-          </div>
-          <div class="field">
-            <label class="field__label" for="settings-language-select">Preferred language</label>
-            <select class="field__input" id="settings-language-select" name="language">
-              <option value="">System default</option>
-              <option value="en" {% if user.language == 'en' %}selected{% endif %}>English</option>
-              <option value="es" {% if user.language == 'es' %}selected{% endif %}>Spanish</option>
-              <option value="fr" {% if user.language == 'fr' %}selected{% endif %}>French</option>
-              <option value="de" {% if user.language == 'de' %}selected{% endif %}>German</option>
-            </select>
-          </div>
-          {% if models %}
-            <div class="field">
-              <label class="field__label" for="settings-model">Default model</label>
-              <select class="field__input" id="settings-model" name="model">
-                <option value="">Platform default</option>
-                {% for model in models %}
-                  {% set model_id = model.id or model.slug or model.name %}
-                  <option value="{{ model_id }}" {% if user.default_model == model_id %}selected{% endif %}>
-                    {{ model.name or model.label or model_id }}
-                  </option>
-                {% endfor %}
-              </select>
-            </div>
-          {% endif %}
-          <button class="btn btn--primary" type="submit">Save profile</button>
-          <p class="form-feedback" data-settings-feedback hidden></p>
-        </form>
+        <select class="field__input" name="language" disabled>
+          <option selected>English (Default)</option>
+          <option>Spanish</option>
+          <option>French</option>
+        </select>
       </div>
       <div class="setting-row" data-content-slot="settings-notifications">
         <div>

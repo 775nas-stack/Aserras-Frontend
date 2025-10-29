@@ -1,9 +1,8 @@
 aiofiles
 fastapi
+httpx
 jinja2
 openai
 pydantic-settings
 python-dotenv
-python-multipart
 uvicorn[standard]
-httpx
