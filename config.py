@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     brain_api_user_history: str = "https://brain.aserras.com/api/user/history"
     brain_api_content_policies: str = "https://brain.aserras.com/api/content/policies"
     brain_api_pricing: str = "https://brain.aserras.com/api/pricing"
+    brain_api_contact_send: str = "https://brain.aserras.com/api/contact/send"
 
     model_config = SettingsConfigDict(
         env_prefix="ASERRAS_",
