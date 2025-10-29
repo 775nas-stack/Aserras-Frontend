@@ -127,6 +127,12 @@ def create_app(settings: Settings) -> FastAPI:
             page_title="Server error",
         )
 
+    @app.get("/health", include_in_schema=False)
+    async def health() -> dict[str, str]:
+        """Simple readiness probe for load balancers and uptime checks."""
+
+        return {"status": "ok"}
+
     @app.get("/")
     async def index(request: Request):
         return render("index.html", request, page_title="Home", nav_active="home")
@@ -316,3 +322,9 @@ def create_app(settings: Settings) -> FastAPI:
 
 
 app = create_app(get_settings())
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("app:app", host="0.0.0.0", port=8001)

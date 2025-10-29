@@ -11,7 +11,7 @@ Group=aserras
 WorkingDirectory=/opt/aserras-frontend
 EnvironmentFile=-/opt/aserras-frontend/.env
 Environment="PATH=/opt/aserras-frontend/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
-ExecStart=/opt/aserras-frontend/.venv/bin/uvicorn app:app --host 0.0.0.0 --port 8080 --proxy-headers --forwarded-allow-ips='*'
+ExecStart=/opt/aserras-frontend/.venv/bin/uvicorn app:app --host 0.0.0.0 --port 8001 --proxy-headers --forwarded-allow-ips='*'
 Restart=on-failure
 RestartSec=5s
 StandardOutput=append:/var/log/aserras/frontend.log
