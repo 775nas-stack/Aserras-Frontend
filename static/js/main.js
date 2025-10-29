@@ -12,6 +12,11 @@
   const THEME_STORAGE_KEY = 'aserras-theme';
   const DEFAULT_THEME = 'dark';
   const AUTH_STORAGE_KEY = 'aserras-auth-state';
+  const AUTH_TOKEN_STORAGE_KEY = 'aserras-auth-token';
+  const SERVICE_ERROR_COOLDOWN = 15000;
+  const SESSION_EXPIRED_MESSAGE = 'Your session has expired. Please sign in again.';
+  const TOAST_CONTAINER_ID = 'aserras-toast-container';
+  let lastServiceErrorAt = 0;
   const enabledAuthProviders = new Set(
     (uiConfig.authProvidersEnabled || []).map((provider) => normaliseKey(provider)),
   );
@@ -19,11 +24,170 @@
     (uiConfig.paymentMethodsEnabled || []).map((method) => normaliseKey(method)),
   );
   const registeredUserMenus = new Set();
+  const pendingToastQueue = [];
 
+  function ensureToastContainer() {
+    if (!document || !document.body) {
+      return null;
+    }
+    let container = document.getElementById(TOAST_CONTAINER_ID);
+    if (!container) {
+      container = document.createElement('div');
+      container.id = TOAST_CONTAINER_ID;
+      container.setAttribute('aria-live', 'polite');
+      container.style.position = 'fixed';
+      container.style.bottom = '1.5rem';
+      container.style.right = '1.5rem';
+      container.style.display = 'flex';
+      container.style.flexDirection = 'column';
+      container.style.gap = '0.75rem';
+      container.style.zIndex = '2147483647';
+      container.style.pointerEvents = 'none';
+      container.style.maxWidth = 'min(90vw, 320px)';
+      document.body.appendChild(container);
+    }
+    return container;
+  }
+
+  function showToast(message, { variant = 'error', timeout = 6000 } = {}) {
+    if (!message) return;
+
+    const run = () => {
+      const container = ensureToastContainer();
+      if (!container) return;
+
+      const toast = document.createElement('div');
+      toast.className = 'aserras-toast';
+      toast.setAttribute('role', 'status');
+      toast.textContent = message;
+      toast.style.pointerEvents = 'auto';
+      toast.style.padding = '0.75rem 1rem';
+      toast.style.borderRadius = '999px';
+      toast.style.background =
+        variant === 'error'
+          ? 'var(--surface-3, rgba(39, 20, 20, 0.92))'
+          : 'var(--surface-3, rgba(18, 21, 31, 0.92))';
+      toast.style.color = 'var(--text-primary, #ffffff)';
+      toast.style.boxShadow = '0 12px 48px rgba(0, 0, 0, 0.35)';
+      toast.style.backdropFilter = 'blur(12px)';
+      toast.style.border =
+        variant === 'error'
+          ? '1px solid var(--danger, rgba(255, 102, 102, 0.6))'
+          : '1px solid rgba(255, 255, 255, 0.15)';
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(8px)';
+      toast.style.transition = 'opacity 200ms ease, transform 200ms ease';
+      toast.style.fontSize = '0.9375rem';
+      toast.style.lineHeight = '1.4';
+
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+      });
+
+      const remove = () => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+        setTimeout(() => {
+          toast.remove();
+        }, 220);
+      };
+
+      setTimeout(remove, Math.max(2000, timeout));
+    };
+
+    if (!document || !document.body) {
+      pendingToastQueue.push(run);
+      document.addEventListener(
+        'DOMContentLoaded',
+        () => {
+          while (pendingToastQueue.length) {
+            const queued = pendingToastQueue.shift();
+            queued?.();
+          }
+        },
+        { once: true },
+      );
+      return;
+    }
+
+    run();
+  }
+
+  function notifyServiceIssue(message) {
+    const now = Date.now();
+    if (now - lastServiceErrorAt < SERVICE_ERROR_COOLDOWN) {
+      return;
+    }
+    lastServiceErrorAt = now;
+    showToast(message || 'We are having trouble reaching Brain. Please try again shortly.', {
+      variant: 'error',
+    });
+  }
+
+  function safeGetStoredToken() {
+    try {
+      const value = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+      return typeof value === 'string' ? value.trim() : '';
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function persistAuthToken(token) {
+    try {
+      const value = typeof token === 'string' ? token.trim() : '';
+      if (value) {
+        localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, value);
+      } else {
+        localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+      }
+    } catch (error) {
+      /* no-op */
+    }
+  }
+
+  function currentAuthToken() {
+    return safeGetStoredToken();
+  }
+
+  function extractToken(payload) {
+    if (!payload || typeof payload !== 'object') {
+      return '';
+    }
+    const candidates = [
+      payload.token,
+      payload.accessToken,
+      payload.access_token,
+      payload?.data?.token,
+      payload?.data?.accessToken,
+      payload?.data?.access_token,
+    ];
+    return candidates.find((value) => typeof value === 'string' && value.trim())?.trim() || '';
+  }
+
+  function ensureAuthenticated({ redirectTo = '/login' } = {}) {
+    const token = currentAuthToken();
+    if (token) {
+      return true;
+    }
+    window.aserrasUI?.setAuthState?.(false, { keepToken: true });
+    if (redirectTo) {
+      window.location.replace(redirectTo);
+    }
+    return false;
+  }
+
+  const initialToken = currentAuthToken();
   uiState.isAuthenticated =
     typeof uiState.isAuthenticated === 'boolean'
       ? Boolean(uiState.isAuthenticated)
-      : safeGetStoredAuthState();
+      : Boolean(initialToken || safeGetStoredAuthState());
+  if (initialToken) {
+    uiState.isAuthenticated = true;
+  }
   persistAuthState(uiState.isAuthenticated);
 
   applyTheme(safeGetStoredTheme() || DEFAULT_THEME, { persist: false });
@@ -71,32 +235,94 @@
 
   const api = {
     async request(path, options = {}) {
+      const { auth = false, ...fetchOptions } = options;
       const targets = buildTargets(path);
       if (!targets.length) {
         throw new Error('No request targets could be resolved');
+      }
+
+      const token = auth ? currentAuthToken() : '';
+      if (auth && !token) {
+        throw new Error('Please sign in to continue.');
       }
 
       let lastError;
 
       for (const url of targets) {
         try {
+          const headers = {
+            ...(fetchOptions.headers || {}),
+          };
+          const hasBody =
+            Object.prototype.hasOwnProperty.call(fetchOptions, 'body') &&
+            fetchOptions.body !== null &&
+            fetchOptions.body !== undefined;
+          if (hasBody && !Object.prototype.hasOwnProperty.call(headers, 'Content-Type')) {
+            headers['Content-Type'] = 'application/json';
+          }
+          if (auth && token) {
+            headers.Authorization = `Bearer ${token}`;
+          }
+
           const response = await fetch(url, {
-            headers: {
-              'Content-Type': 'application/json',
-              ...(options.headers || {}),
-            },
-            ...options,
+            ...fetchOptions,
+            headers,
           });
+          const responseClone = response.clone();
 
           if (!response.ok) {
-            const detail = await response.json().catch(() => ({}));
-            const message = detail.message || detail.detail || response.statusText;
+            if (response.status === 401 || response.status === 403) {
+              window.aserrasUI?.setAuthState?.(false);
+              notifyServiceIssue(SESSION_EXPIRED_MESSAGE);
+            } else if (response.status >= 500) {
+              notifyServiceIssue(
+                'Brain is unavailable at the moment. We will keep trying to reconnect.',
+              );
+            }
+
+            let detail = {};
+            try {
+              detail = await responseClone.json();
+            } catch (error) {
+              /* response did not include JSON */
+            }
+            const fallbackMessage =
+              response.status === 401 || response.status === 403
+                ? SESSION_EXPIRED_MESSAGE
+                : 'Request failed';
+            const message =
+              detail?.message ||
+              detail?.detail ||
+              detail?.error ||
+              response.statusText ||
+              fallbackMessage;
             throw new Error(message || 'Request failed');
           }
 
-          return response.json();
+          if (response.status === 204) {
+            return {};
+          }
+
+          const contentType = response.headers.get('content-type') || '';
+          if (!contentType.toLowerCase().includes('application/json')) {
+            const text = await response.text().catch(() => '');
+            return text ? { data: text } : {};
+          }
+
+          try {
+            return await response.json();
+          } catch (error) {
+            return {};
+          }
         } catch (error) {
-          lastError = error;
+          lastError = error instanceof Error ? error : new Error('Unable to reach service');
+          const message = error instanceof Error ? error.message || '' : '';
+          if (
+            error instanceof TypeError ||
+            /NetworkError|Failed to fetch/i.test(message)
+          ) {
+            notifyServiceIssue('We are having trouble reaching Brain. Please try again shortly.');
+          }
         }
       }
 
@@ -244,6 +470,9 @@
   }
 
   function safeGetStoredAuthState() {
+    if (currentAuthToken()) {
+      return true;
+    }
     try {
       const stored = localStorage.getItem(AUTH_STORAGE_KEY);
       if (stored === 'true') return true;
@@ -507,9 +736,14 @@
         body: JSON.stringify(payload),
       });
 
+      const token = extractToken(response);
+      if (!token) {
+        throw new Error('We could not establish a secure session. Please try again.');
+      }
+
       console.info('[Aserras] Login submission captured.', scrubSensitive(formData));
       setFeedback(feedback, response.message || 'Welcome back. Redirecting to your dashboard...');
-      window.aserrasUI?.setAuthState?.(true);
+      window.aserrasUI?.setAuthState?.(true, { token });
       const redirect = response.redirect || '/dashboard';
       setTimeout(() => {
         window.location.href = redirect;
@@ -552,8 +786,13 @@
         body: JSON.stringify(payload),
       });
 
+      const token = extractToken(response);
+      if (!token) {
+        throw new Error('We could not activate your session. Please try signing in.');
+      }
+
       console.info('[Aserras] Signup submission captured.', scrubSensitive(formData));
-      window.aserrasUI?.setAuthState?.(true);
+      window.aserrasUI?.setAuthState?.(true, { token });
       setFeedback(feedback, response.message || 'Your account is live. Redirecting now...');
       const redirect = response.redirect || '/dashboard';
       setTimeout(() => {
@@ -666,7 +905,7 @@
 
   async function fetchHistory() {
     const endpoint = resolveEndpoint('userHistory', '/api/user/history');
-    const response = await api.request(endpoint);
+    const response = await api.request(endpoint, { auth: true });
     const messages = Array.isArray(response.messages) ? response.messages : [];
     return messages.map((message) => ({
       id: message.id,
@@ -685,6 +924,10 @@
     const emptyState = transcript?.querySelector('[data-chat-empty]') || null;
 
     if (!transcript || !form || !input || !sendButton) return;
+
+    if (!ensureAuthenticated()) {
+      return;
+    }
 
     let isSending = false;
 
@@ -747,6 +990,11 @@
         );
       } catch (error) {
         console.error('[Aserras] Unable to load chat history.', error);
+        if (error?.message === SESSION_EXPIRED_MESSAGE) {
+          setStatus('Your session expired. Redirecting to the login screen...', 'error');
+          ensureAuthenticated();
+          return;
+        }
         toggleEmptyState();
         setStatus(
           'We could not load earlier conversations. New messages will still appear instantly.',
@@ -792,6 +1040,7 @@
         const response = await api.request(resolveEndpoint('chatSend', '/api/chat/send'), {
           method: 'POST',
           body: JSON.stringify({ message: text }),
+          auth: true,
         });
 
         const history = Array.isArray(response.messages) ? response.messages : [];
@@ -802,11 +1051,16 @@
         setStatus('Synced. Ask anything else to continue.', 'synced');
       } catch (error) {
         console.error('[Aserras] Chat message failed.', error);
-        appendMessage(
-          'ai',
-          `We ran into an issue processing that update: ${error?.message || 'please try again shortly.'}`,
-        );
-        setStatus('We hit a connection snag. Trying again will usually fix it.', 'error');
+        if (error?.message === SESSION_EXPIRED_MESSAGE) {
+          setStatus('Your session expired. Redirecting to the login screen...', 'error');
+          ensureAuthenticated();
+        } else {
+          appendMessage(
+            'ai',
+            `We ran into an issue processing that update: ${error?.message || 'please try again shortly.'}`,
+          );
+          setStatus('We hit a connection snag. Trying again will usually fix it.', 'error');
+        }
       } finally {
         isSending = false;
       }
@@ -850,6 +1104,7 @@
       const response = await api.request(resolveEndpoint('paymentCreate', '/api/payment/create'), {
         method: 'POST',
         body: JSON.stringify(payload),
+        auth: true,
       });
       setFeedback(
         feedback,
@@ -884,6 +1139,10 @@
   }
 
   function initDashboardShell() {
+    if (!ensureAuthenticated()) {
+      return;
+    }
+
     const stats = {
       messages: document.querySelector('[data-stat="messages"]'),
       seats: document.querySelector('[data-stat="seats"]'),
@@ -955,6 +1214,10 @@
         console.info('[Aserras] Dashboard history synced.', { total: messages.length });
       } catch (error) {
         console.error('[Aserras] Dashboard refresh failed.', error);
+        if (error?.message === SESSION_EXPIRED_MESSAGE) {
+          ensureAuthenticated();
+          return;
+        }
         updateStats([]);
         if (historyList) {
           historyList.innerHTML = '';
@@ -1036,12 +1299,27 @@
     applyConfigMetadata,
     applyFeatureFlags,
     syncAuthUI,
-    setAuthState(isAuthenticated) {
-      uiState.isAuthenticated = Boolean(isAuthenticated);
+    setAuthState(isAuthenticated, options = {}) {
+      const next = Boolean(isAuthenticated);
+      const token = options?.token;
+      const keepToken = options?.keepToken === true;
+
+      if (next) {
+        if (token) {
+          persistAuthToken(token);
+        }
+      } else if (!keepToken) {
+        persistAuthToken('');
+      }
+
+      uiState.isAuthenticated = next || Boolean(currentAuthToken());
       persistAuthState(uiState.isAuthenticated);
       syncAuthUI();
       return uiState.isAuthenticated;
     },
+    getAuthToken: currentAuthToken,
+    requireAuth: ensureAuthenticated,
+    showToast,
   };
 
   document.addEventListener('DOMContentLoaded', () => {
