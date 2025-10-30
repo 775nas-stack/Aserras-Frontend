@@ -6,3 +6,6 @@ aserras.service
 # Python artifacts
 __pycache__/
 *.pyc
+.pytest_cache/
+.env
+*.db

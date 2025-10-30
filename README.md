@@ -28,8 +28,29 @@ jinja2
 openai
 pydantic-settings
 python-dotenv
+stripe
 uvicorn[standard]
 ```
+
+## Environment configuration
+
+Create a `.env` file (not committed to git) or provide environment variables at
+runtime. A template lives in `.env.example` so fresh clones can be configured
+quickly:
+
+| Variable | Description |
+| --- | --- |
+| `BRAIN_BASE` | Base URL for the upstream Brain/Core API. |
+| `SERVICE_TOKEN` | Service token used when calling private Core APIs. |
+| `ALLOWED_ORIGINS` | Comma separated list of origins allowed to call this API. Leave empty for local development. |
+| `STRIPE_SECRET_KEY` | Stripe secret key (sk_...). Required for the API to boot. |
+| `STRIPE_WEBHOOK_SECRET` | Secret used to verify Stripe webhooks. |
+| `OPTIONAL_PAYPAL_ENABLED` | Enable experimental PayPal endpoints when set to `true`. |
+| `OPTIONAL_PAYPAL_WEBHOOK_SECRET` | Reserved for future PayPal webhook validation. |
+
+> **Note:** `.env` files should only exist on the server or in your local
+> development environment. They are intentionally excluded from version control
+> so recloning never leaks credentials.
 
 ## Local development
 
@@ -43,6 +64,38 @@ uvicorn[standard]
    uvicorn app:app --reload
    ```
 4. Visit `http://localhost:8000` to browse the marketing pages and chat UI.
+
+## Payments API
+
+The application exposes endpoints for Stripe's Payment Element and optional
+PayPal stubs so the frontend can offer multiple payment methods out of the box.
+
+### Create a Stripe PaymentIntent
+
+```bash
+curl -X POST http://localhost:8000/api/payment/intent \
+  -H 'content-type: application/json' \
+  -d '{"plan_id": "pro"}'
+```
+
+The response includes a `client_secret` that the frontend can feed directly into
+Stripe's Payment Element. The backend automatically enables compatible payment
+methods (Apple Pay / Google Pay via Payment Request Button) whenever Stripe
+reports they are available.
+
+### Webhook setup
+
+Configure your Stripe webhook endpoint to deliver these events so both Checkout
+Sessions and Payment Element flows stay in sync:
+
+* `checkout.session.completed`
+* `invoice.paid`
+* `payment_intent.succeeded`
+
+The webhook verifies requests with `STRIPE_WEBHOOK_SECRET` and records the latest
+status in memory. Optional PayPal endpoints (`/api/paypal/order` and
+`/api/paypal/capture`) become available only when `OPTIONAL_PAYPAL_ENABLED=true`
+and currently return `501 Not Implemented` to signal future work.
 
 ## Deployment
 

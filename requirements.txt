@@ -4,4 +4,5 @@ jinja2
 openai
 pydantic-settings
 python-dotenv
+stripe
 uvicorn[standard]
