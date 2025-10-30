@@ -58,5 +58,5 @@ def test_login_page_mentions_dashboard_redirect():
     assert response.status_code == 200
     body = response.text
     assert 'window.ASERRAS_CONFIG' in body
-    assert 'https://brain.aserras.com/api/auth/login' in body
+    assert 'https://core.aserras.com/api/auth/login' in body
     assert '/dashboard' in body
