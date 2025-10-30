@@ -18,10 +18,11 @@ DEFAULT_ENV_FILE = Path(__file__).resolve().parent / ".env"
 class Settings(BaseSettings):
     """Environment-backed settings."""
 
-        app_name: str = Field(
-        default="Aserras Web",
-        validation_alias=AliasChoices("APP_NAME", "ASERRAS_APP_NAME"),
-    )
+class Settings(BaseSettings):
+    app_name: str = Field(
+        "Aserras Frontend",
+        title="Application Name",
+    )   
     host: str = Field(
         default="0.0.0.0",
         validation_alias=AliasChoices("HOST", "ASERRAS_HOST"),
