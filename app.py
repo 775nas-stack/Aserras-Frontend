@@ -193,7 +193,23 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.get("/pricing")
     async def pricing(request: Request):
-        return render("pricing.html", request, page_title="Pricing", nav_active="pricing")
+        return render(
+            "pricing.html",
+            request,
+            page_title="Pricing",
+            nav_active="pricing",
+            is_upgrade=False,
+        )
+
+    @app.get("/upgrade")
+    async def upgrade(request: Request):
+        return render(
+            "pricing.html",
+            request,
+            page_title="Upgrade",
+            nav_active="pricing",
+            is_upgrade=True,
+        )
 
     @app.get("/robots.txt", include_in_schema=False)
     async def robots():

@@ -8,6 +8,9 @@
       <p class="summary-description" data-content-key="checkout-description">
         {{ selected_plan.description }}
       </p>
+      <p class="muted small plan-status-message" data-plan-status-message hidden>
+        Current plan: <strong data-plan-status-name>Free</strong>
+      </p>
       <div class="summary-card">
         <div class="summary-price" data-plan-price>
           {{ selected_plan.price }}<span>/month</span>

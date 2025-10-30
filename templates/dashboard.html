@@ -25,8 +25,11 @@
       <article class="panel" data-content-slot="dashboard-account">
         <header class="panel__header">
           <h2 data-content-key="dashboard-account-title">Plan Overview</h2>
-          <span class="badge" data-badge="tier" data-content-key="dashboard-account-tier">Free Tier</span>
+          <span class="badge" data-badge="tier" data-plan-tier data-content-key="dashboard-account-tier">Free Tier</span>
         </header>
+        <p class="muted small" data-plan-status-note data-default-note="Plan updates appear once checkout finishes.">
+          Plan updates appear once checkout finishes.
+        </p>
         <dl class="panel__stats">
           <div>
             <dt data-content-key="dashboard-stat-messages">Messages tracked</dt>
