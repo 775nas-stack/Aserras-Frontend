@@ -2,8 +2,8 @@
   const config = window.ASERRAS_CONFIG || {};
   const endpoints = config.endpoints || {};
   const uiConfig = window.ASERRAS_UI_CONFIG || {
-    pricingSource: 'brain',
-    contentSource: 'brain',
+    pricingSource: 'core',
+    contentSource: 'core',
     authProvidersEnabled: ['google', 'microsoft', 'apple', 'github'],
     paymentMethodsEnabled: ['google_pay', 'paypal', 'apple_pay', 'card'],
   };
@@ -122,7 +122,7 @@
       return;
     }
     lastServiceErrorAt = now;
-    showToast(message || 'We are having trouble reaching Brain. Please try again shortly.', {
+    showToast(message || 'We are having trouble reaching Core. Please try again shortly.', {
       variant: 'error',
     });
   }
@@ -276,7 +276,7 @@
               notifyServiceIssue(SESSION_EXPIRED_MESSAGE);
             } else if (response.status >= 500) {
               notifyServiceIssue(
-                'Brain is unavailable at the moment. We will keep trying to reconnect.',
+                'Core is unavailable at the moment. We will keep trying to reconnect.',
               );
             }
 
@@ -321,7 +321,7 @@
             error instanceof TypeError ||
             /NetworkError|Failed to fetch/i.test(message)
           ) {
-            notifyServiceIssue('We are having trouble reaching Brain. Please try again shortly.');
+            notifyServiceIssue('We are having trouble reaching Core. Please try again shortly.');
           }
         }
       }
@@ -692,7 +692,7 @@
       setFeedback(feedback, 'Sending your note to the concierge...');
 
       try {
-        const response = await api.request(resolveEndpoint('contactSend', '/api/contact/send'), {
+        const response = await api.request(resolveEndpoint('contactSend', '/contact/send'), {
           method: 'POST',
           body: JSON.stringify(formData),
         });
@@ -731,7 +731,7 @@
         email: formData.email,
         password: formData.password,
       };
-      const response = await api.request(resolveEndpoint('authLogin', '/api/auth/login'), {
+      const response = await api.request(resolveEndpoint('authLogin', '/auth/login'), {
         method: 'POST',
         body: JSON.stringify(payload),
       });
@@ -781,7 +781,7 @@
         password: formData.password,
       };
 
-      const response = await api.request(resolveEndpoint('authSignup', '/api/auth/signup'), {
+      const response = await api.request(resolveEndpoint('authSignup', '/auth/signup'), {
         method: 'POST',
         body: JSON.stringify(payload),
       });
@@ -904,7 +904,7 @@
   }
 
   async function fetchHistory() {
-    const endpoint = resolveEndpoint('userHistory', '/api/user/history');
+    const endpoint = resolveEndpoint('userHistory', '/chat/history');
     const response = await api.request(endpoint, { auth: true });
     const messages = Array.isArray(response.messages) ? response.messages : [];
     return messages.map((message) => ({
@@ -1037,7 +1037,7 @@
       setStatus('Aserras is thinking...', 'loading');
 
       try {
-        const response = await api.request(resolveEndpoint('chatSend', '/api/chat/send'), {
+        const response = await api.request(resolveEndpoint('chatSend', '/chat/send'), {
           method: 'POST',
           body: JSON.stringify({ message: text }),
           auth: true,
@@ -1101,7 +1101,7 @@
         planId,
         token: method,
       };
-      const response = await api.request(resolveEndpoint('paymentCreate', '/api/payment/create'), {
+      const response = await api.request(resolveEndpoint('paymentCreate', '/payment/create'), {
         method: 'POST',
         body: JSON.stringify(payload),
         auth: true,

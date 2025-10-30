@@ -1,7 +1,7 @@
 (function () {
   const defaults = {
-    pricingSource: 'brain',
-    contentSource: 'brain',
+    pricingSource: 'core',
+    contentSource: 'core',
     authProvidersEnabled: ['google', 'microsoft', 'apple', 'github'],
     paymentMethodsEnabled: ['google_pay', 'paypal', 'apple_pay', 'card'],
   };
