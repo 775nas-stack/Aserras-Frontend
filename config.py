@@ -91,13 +91,13 @@ class Settings(BaseSettings):
             "brain_api_auth_login": "/auth/login",
             "brain_api_auth_signup": "/auth/signup",
             "brain_api_payment_create": "/payment/create",
-            "brain_api_payment_checkout": "/payment/checkout",
+            "brain_api_payment_checkout": "/payments/create-checkout-session",
             "brain_api_chat_send": "/chat/send",
             "brain_api_user_history": "/chat/history",
             "brain_api_content_policies": "/content/policies",
             "brain_api_pricing": "/pricing",
             "brain_api_contact_send": "/contact/send",
-            "brain_api_account_status": "/account/status",
+            "brain_api_account_status": "/payments/subscription-status",
         }
 
         for field_name, suffix in endpoint_suffixes.items():

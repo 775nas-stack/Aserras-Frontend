@@ -27,6 +27,8 @@
           <h2 data-content-key="dashboard-account-title">Plan Overview</h2>
           <span class="badge" data-badge="tier" data-plan-tier data-content-key="dashboard-account-tier">Free Tier</span>
         </header>
+        <p class="plan-current" data-plan-summary>Current plan: Free</p>
+        <p class="plan-success-badge" data-plan-success hidden aria-hidden="true"></p>
         <p class="muted small" data-plan-status-note data-default-note="Plan updates appear once checkout finishes.">
           Plan updates appear once checkout finishes.
         </p>
@@ -44,6 +46,7 @@
             <dd data-stat="success">0%</dd>
           </div>
         </dl>
+        <p class="form-feedback" data-dashboard-plan-feedback hidden></p>
         <footer class="panel__footer">
           <button class="btn btn--primary" type="button" data-dashboard-action="upgrade" data-content-key="dashboard-upgrade">Upgrade Plan</button>
           <a class="btn btn--outline" href="/pricing" data-content-key="dashboard-view-pricing">View Pricing</a>

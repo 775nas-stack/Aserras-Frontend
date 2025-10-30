@@ -29,16 +29,45 @@
       <p class="muted small" data-content-key="checkout-step-payment">Step 2 · Choose how to pay</p>
       <h2 data-content-key="checkout-methods-title">Select a payment method</h2>
       <div class="method-grid" data-payment-methods>
-        <button class="payment-method" type="button" data-payment-method="google_pay">
+        <button class="payment-method is-disabled" type="button" data-payment-method="google_pay" disabled>
+          <img
+            src="{{ url_for('static', path='/img/google-pay.svg') }}"
+            alt=""
+            aria-hidden="true"
+            class="method-logo"
+          />
           <span class="method-label" data-content-key="payment-google-pay">Google Pay</span>
         </button>
-        <button class="payment-method" type="button" data-payment-method="paypal">
+        <button class="payment-method is-disabled" type="button" data-payment-method="paypal" disabled>
+          <img
+            src="{{ url_for('static', path='/img/paypal.svg') }}"
+            alt=""
+            aria-hidden="true"
+            class="method-logo"
+          />
           <span class="method-label" data-content-key="payment-paypal">PayPal</span>
         </button>
-        <button class="payment-method" type="button" data-payment-method="apple_pay">
+        <button class="payment-method is-disabled" type="button" data-payment-method="apple_pay" disabled>
+          <img
+            src="{{ url_for('static', path='/img/apple-pay.svg') }}"
+            alt=""
+            aria-hidden="true"
+            class="method-logo"
+          />
           <span class="method-label" data-content-key="payment-apple-pay">Apple Pay</span>
         </button>
-        <button class="payment-method" type="button" data-payment-method="card">
+        <button
+          class="payment-method is-selected"
+          type="button"
+          data-payment-method="card"
+          data-checkout-trigger
+        >
+          <img
+            src="{{ url_for('static', path='/img/card-stripe.svg') }}"
+            alt=""
+            aria-hidden="true"
+            class="method-logo"
+          />
           <span class="method-label" data-content-key="payment-card">Card (Stripe)</span>
         </button>
       </div>
