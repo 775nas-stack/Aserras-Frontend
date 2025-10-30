@@ -197,8 +197,7 @@ def _timestamp(hours: int = 0) -> str:
 def create_app(settings: Settings) -> FastAPI:
     """Application factory to build the FastAPI instance."""
 
-      app = FastAPI(title=settings.app_name or "Aserras Web", debug=settings.debug)
-
+app = FastAPI(title=settings.app_name or "Aserras Web", debug=settings.debug)
     if settings.has_stripe_secret and settings.stripe_secret_key is not None:
         stripe.api_key = settings.stripe_secret_key.get_secret_value()
         LOGGER.info("Stripe secret key loaded; Stripe integration enabled.")
