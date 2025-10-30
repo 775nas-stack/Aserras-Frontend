@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from collections import deque
 from datetime import datetime, timedelta
-from secrets import token_hex
+from importlib import util as importlib_util
 from pathlib import Path
+from secrets import token_hex
+import sys
 from typing import Any
 
 from anyio import to_thread
@@ -49,6 +51,14 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for local tests witho
         def construct_event(*_: Any, **__: Any) -> Any:
             raise RuntimeError("stripe package is required for payment processing")
 
+    class _StripeCheckoutSession:
+        @staticmethod
+        def create(*_: Any, **__: Any) -> Any:
+            raise RuntimeError("stripe package is required for payment processing")
+
+    class _StripeCheckout:
+        Session = _StripeCheckoutSession
+
     class _StripeStub:
         def __init__(self) -> None:
             self.api_key: str | None = None
@@ -65,6 +75,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for local tests witho
             self.PaymentIntent = _StripePaymentIntent
             self.Balance = _StripeBalance
             self.Webhook = _StripeWebhook
+            self.checkout = _StripeCheckout
 
     stripe = _StripeStub()
 
@@ -73,6 +84,32 @@ from config import Settings, get_settings
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent
+
+
+def _load_payments_router():
+    """Dynamically import the payments router if it exists."""
+
+    router_path = BASE_DIR / "app" / "routers" / "payments.py"
+    if not router_path.exists():
+        return None
+
+    module_name = "app.routers.payments"
+    if "app.routers" not in sys.modules:
+        package = importlib_util.module_from_spec(
+            importlib_util.spec_from_loader("app.routers", loader=None)
+        )
+        package.__path__ = []  # type: ignore[attr-defined]
+        sys.modules["app.routers"] = package
+    spec = importlib_util.spec_from_file_location(module_name, router_path)
+    if spec is None or spec.loader is None:
+        return None
+
+    module = importlib_util.module_from_spec(spec)
+    module.__package__ = "app.routers"
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+
+    return getattr(module, "router", None)
 
 
 class AuthRequest(BaseModel):
@@ -163,6 +200,8 @@ def create_app(settings: Settings) -> FastAPI:
 
     stripe.api_key = settings.stripe_secret_key.get_secret_value()
 
+    print("Stripe keys loaded:", bool(settings.stripe_secret_key))
+
     allowed_origins = settings.allowed_origins
     allow_credentials = True
     if not allowed_origins:
@@ -191,6 +230,10 @@ def create_app(settings: Settings) -> FastAPI:
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
     templates = Jinja2Templates(directory=str(templates_dir))
     templates.env.globals["now"] = datetime.utcnow
+
+    router = _load_payments_router()
+    if router is not None:
+        app.include_router(router)
 
     def render(
         template_name: str,
@@ -395,6 +438,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.chat_history = deque(DEFAULT_CHAT_HISTORY, maxlen=200)
     app.state.payment_records: dict[str, dict[str, Any]] = {}
     app.state.paypal_orders: dict[str, dict[str, Any]] = {}
+    app.state.user_subscriptions: dict[str, str] = {}
 
     @app.post("/api/auth/login")
     async def api_login(payload: AuthRequest):

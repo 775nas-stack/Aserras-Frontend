@@ -36,6 +36,20 @@ class Settings(BaseSettings):
             "ASERRAS_STRIPE_WEBHOOK_SECRET",
         ),
     )
+    stripe_price_pro: str = Field(
+        default="price_test_pro",
+        validation_alias=AliasChoices(
+            "STRIPE_PRICE_PRO",
+            "ASERRAS_STRIPE_PRICE_PRO",
+        ),
+    )
+    stripe_price_enterprise: str = Field(
+        default="price_test_enterprise",
+        validation_alias=AliasChoices(
+            "STRIPE_PRICE_ENTERPRISE",
+            "ASERRAS_STRIPE_PRICE_ENTERPRISE",
+        ),
+    )
     optional_paypal_enabled: bool = Field(
         default=False,
         validation_alias=AliasChoices(
@@ -118,6 +132,15 @@ class Settings(BaseSettings):
         """Return True when a Stripe secret key has been provided."""
 
         return bool(self.stripe_secret_key and self.stripe_secret_key.get_secret_value().strip())
+
+    def stripe_price_for_plan(self, plan: str) -> str | None:
+        """Return the configured Stripe price identifier for the supplied plan."""
+
+        mapping = {
+            "pro": self.stripe_price_pro.strip(),
+            "enterprise": self.stripe_price_enterprise.strip(),
+        }
+        return mapping.get(plan.lower()) or None
 
 
 @lru_cache()
