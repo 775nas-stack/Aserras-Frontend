@@ -18,6 +18,7 @@ def test_primary_pages_render():
         '/about',
         '/contact',
         '/pricing',
+        '/upgrade',
         '/chat',
         '/login',
         '/signup',

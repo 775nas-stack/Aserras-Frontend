@@ -1,9 +1,30 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="section pricing-hero" data-content-block="pricing-hero">
+{% set upgrade_mode = is_upgrade|default(false) %}
+<section class="section pricing-hero" data-content-block="pricing-hero" data-pricing>
   <div class="container section-header">
-    <h1 data-content-key="pricing-title">Plans crafted for every ambition</h1>
-    <p data-content-key="pricing-subtitle">Select the membership that matches your pace. Each plan stays private, polished, and ready to scale.</p>
+    <h1 data-content-key="pricing-title">
+      {% if upgrade_mode %}
+      Elevate your workspace in seconds
+      {% else %}
+      Plans crafted for every ambition
+      {% endif %}
+    </h1>
+    <p data-content-key="pricing-subtitle">
+      {% if upgrade_mode %}
+      Choose the membership that unlocks your next milestone. Billing upgrades land instantly once checkout completes.
+      {% else %}
+      Select the membership that matches your pace. Each plan stays private, polished, and ready to scale.
+      {% endif %}
+    </p>
+    <div class="plan-status-banner" data-plan-status-banner hidden>
+      <span class="badge" data-plan-status-label>Active Plan</span>
+      <span class="plan-status-name" data-plan-status-name>Free</span>
+    </div>
+    <p class="muted small plan-status-message" data-plan-status-message hidden>
+      Current plan: <strong data-plan-status-name>Free</strong>
+    </p>
+    <p class="form-feedback" data-plan-feedback hidden></p>
   </div>
   <div class="container pricing-grid" data-pricing-grid>
     <article class="pricing-card" data-plan="free" data-plan-card>
@@ -14,7 +35,8 @@
         <li data-feature-index="1">Personal workspace basics</li>
         <li data-feature-index="2">Secure message history</li>
       </ul>
-      <button class="btn ghost" type="button" data-checkout-plan>Select Plan</button>
+      <div class="plan-status-chip" aria-hidden="true" hidden>Active Plan</div>
+      <button class="btn ghost" type="button" data-checkout-plan data-default-label="Select Plan" data-active-label="Active Plan">Select Plan</button>
     </article>
     <article class="pricing-card" data-plan="basic" data-plan-card>
       <h2 data-plan-name="basic">Basic</h2>
@@ -24,7 +46,8 @@
         <li data-feature-index="1">Shared project spaces</li>
         <li data-feature-index="2">Priority email support</li>
       </ul>
-      <button class="btn primary" type="button" data-checkout-plan>Select Plan</button>
+      <div class="plan-status-chip" aria-hidden="true" hidden>Active Plan</div>
+      <button class="btn primary" type="button" data-checkout-plan data-default-label="Select Plan" data-active-label="Active Plan">Select Plan</button>
     </article>
     <article class="pricing-card featured" data-plan="pro" data-plan-card>
       <h2 data-plan-name="pro">Pro</h2>
@@ -37,7 +60,8 @@
         <li data-feature-index="2">Expanded storage</li>
         <li data-feature-index="3">Personal success advisor</li>
       </ul>
-      <button class="btn primary" type="button" data-checkout-plan>Select Plan</button>
+      <div class="plan-status-chip" aria-hidden="true" hidden>Active Plan</div>
+      <button class="btn primary" type="button" data-checkout-plan data-default-label="Select Plan" data-active-label="Active Plan">Select Plan</button>
     </article>
     <article class="pricing-card" data-plan="elite" data-plan-card>
       <h2 data-plan-name="elite">Elite</h2>
@@ -49,7 +73,8 @@
         <li data-feature-index="1">Enterprise governance</li>
         <li data-feature-index="2">Custom integrations</li>
       </ul>
-      <button class="btn primary" type="button" data-checkout-plan>Talk to Aserras</button>
+      <div class="plan-status-chip" aria-hidden="true" hidden>Active Plan</div>
+      <button class="btn primary" type="button" data-checkout-plan data-default-label="Talk to Aserras" data-active-label="Active Plan">Talk to Aserras</button>
     </article>
   </div>
   <p class="pricing-note" data-content-key="pricing-note">

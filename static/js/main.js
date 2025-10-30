@@ -25,6 +25,14 @@
   );
   const registeredUserMenus = new Set();
   const pendingToastQueue = [];
+  const planState = {
+    id: 'free',
+    name: 'Free',
+    status: 'inactive',
+  };
+  const PLAN_STATUS_ACTIVE = 'active';
+  const PLAN_STATUS_POLL_ATTEMPTS = 8;
+  const PLAN_STATUS_POLL_DELAY = 5000;
 
   function ensureToastContainer() {
     if (!document || !document.body) {
@@ -340,6 +348,217 @@
       .filter(Boolean)
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(' ');
+  }
+
+  function delay(ms) {
+    return new Promise((resolve) => {
+      setTimeout(resolve, Math.max(0, Number(ms) || 0));
+    });
+  }
+
+  function extractPlanDetails(payload) {
+    if (!payload || typeof payload !== 'object') {
+      return null;
+    }
+
+    const candidates = [
+      payload.plan,
+      payload.subscription,
+      payload.account,
+      payload.data?.plan,
+      payload.data?.subscription,
+      payload.details,
+      payload,
+    ];
+
+    let source = null;
+    for (const candidate of candidates) {
+      if (candidate && typeof candidate === 'object') {
+        source = candidate;
+        break;
+      }
+    }
+
+    if (!source) {
+      return null;
+    }
+
+    const idCandidate =
+      source.id ||
+      source.planId ||
+      source.plan_id ||
+      source.code ||
+      source.slug ||
+      source.tier ||
+      source.plan;
+    const nameCandidate =
+      source.name ||
+      source.planName ||
+      source.label ||
+      source.title ||
+      (typeof idCandidate === 'string' ? formatLabelFromKey(idCandidate) : '');
+    const statusCandidate =
+      source.status ||
+      source.state ||
+      source.subscriptionStatus ||
+      source.phase ||
+      (source.active === true ? PLAN_STATUS_ACTIVE : '') ||
+      (source.active === false ? 'inactive' : '') ||
+      payload.status;
+
+    const planId = normaliseKey(idCandidate || nameCandidate || planState.id || 'free');
+    const planName = nameCandidate || (planId ? formatLabelFromKey(planId) : planState.name);
+    const planStatus = normaliseKey(statusCandidate) || (source.active === true ? PLAN_STATUS_ACTIVE : '');
+
+    const fallbackStatus =
+      planState.id && planState.id === planId ? planState.status : 'inactive';
+
+    return {
+      id: planId || 'free',
+      name: planName || 'Free',
+      status: planStatus || fallbackStatus,
+    };
+  }
+
+  function applyPlanStatus(nextPlan) {
+    const plan = extractPlanDetails(nextPlan) || {
+      id: 'free',
+      name: 'Free',
+      status: 'inactive',
+    };
+
+    planState.id = plan.id || 'free';
+    planState.name = plan.name || 'Free';
+    planState.status = normaliseKey(plan.status) || (planState.id !== 'free' ? PLAN_STATUS_ACTIVE : 'inactive');
+
+    const humanStatus = planState.status === PLAN_STATUS_ACTIVE ? 'Active Plan' : 'Plan';
+
+    document.querySelectorAll('[data-plan-status-name]').forEach((node) => {
+      node.textContent = planState.name;
+    });
+
+    document.querySelectorAll('[data-plan-status-label]').forEach((node) => {
+      node.textContent = humanStatus;
+    });
+
+    document.querySelectorAll('[data-plan-status-banner]').forEach((node) => {
+      node.hidden = planState.status !== PLAN_STATUS_ACTIVE;
+      node.dataset.status = planState.status;
+    });
+
+    document.querySelectorAll('[data-plan-status-message]').forEach((node) => {
+      node.hidden = false;
+      node.dataset.status = planState.status;
+    });
+
+    document.querySelectorAll('[data-plan-status-note]').forEach((node) => {
+      const defaultNote = node.dataset.defaultNote || node.textContent;
+      if (planState.status === PLAN_STATUS_ACTIVE) {
+        node.textContent = `Your ${planState.name} membership is live.`;
+      } else if (defaultNote) {
+        node.textContent = defaultNote;
+      }
+    });
+
+    const tierBadge = document.querySelector('[data-plan-tier]');
+    if (tierBadge) {
+      tierBadge.textContent =
+        planState.status === PLAN_STATUS_ACTIVE ? `${planState.name} · Active` : planState.name;
+      tierBadge.dataset.status = planState.status;
+    }
+
+    document.querySelectorAll('[data-plan-card]').forEach((card) => {
+      const cardPlanId = normaliseKey(card.dataset.plan);
+      const isActive = planState.status === PLAN_STATUS_ACTIVE && cardPlanId === planState.id;
+      card.classList.toggle('is-active-plan', isActive);
+
+      const action = card.querySelector('[data-checkout-plan]');
+      if (action) {
+        const defaultLabel = action.dataset.defaultLabel || action.textContent || 'Select Plan';
+        const activeLabel = action.dataset.activeLabel || 'Active Plan';
+        if (isActive) {
+          action.textContent = activeLabel;
+          action.disabled = true;
+          action.setAttribute('aria-disabled', 'true');
+        } else {
+          action.textContent = defaultLabel;
+          action.disabled = false;
+          action.setAttribute('aria-disabled', 'false');
+        }
+      }
+
+      const chip = card.querySelector('.plan-status-chip');
+      if (chip) {
+        chip.hidden = !isActive;
+        chip.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+      }
+    });
+
+    return { ...planState };
+  }
+
+  async function syncPlanStatus({ silent = false } = {}) {
+    if (!currentAuthToken()) {
+      if (!silent) {
+        applyPlanStatus({ id: 'free', name: 'Free', status: 'inactive' });
+      }
+      return null;
+    }
+
+    try {
+      const response = await api.request(resolveEndpoint('accountStatus', '/account/status'), {
+        auth: true,
+      });
+      const details = extractPlanDetails(response);
+      if (details) {
+        return applyPlanStatus(details);
+      }
+      return null;
+    } catch (error) {
+      if (!silent) {
+        console.error('[Aserras] Failed to sync plan status.', error);
+        if (error?.message) {
+          showToast(error.message);
+        }
+      }
+      if (error?.message === SESSION_EXPIRED_MESSAGE) {
+        ensureAuthenticated();
+      }
+      return null;
+    }
+  }
+
+  async function pollPlanActivation(expectedPlanId, { feedback, planLabel } = {}) {
+    const targetPlan = normaliseKey(expectedPlanId);
+    if (!targetPlan || !currentAuthToken()) {
+      return false;
+    }
+
+    for (let attempt = 0; attempt < PLAN_STATUS_POLL_ATTEMPTS; attempt += 1) {
+      const status = await syncPlanStatus({ silent: true });
+      if (status && normaliseKey(status.id) === targetPlan && status.status === PLAN_STATUS_ACTIVE) {
+        if (feedback) {
+          setFeedback(
+            feedback,
+            `${planLabel || formatLabelFromKey(targetPlan)} is now your active plan.`,
+          );
+        }
+        showToast(`You're now on the ${planLabel || formatLabelFromKey(targetPlan)} plan!`, {
+          variant: 'success',
+          timeout: 6000,
+        });
+        return true;
+      }
+      await delay(PLAN_STATUS_POLL_DELAY);
+    }
+
+    if (feedback) {
+      setFeedback(
+        feedback,
+        `Checkout session created. We'll update your ${planLabel || 'selected'} plan once payment completes.`,
+      );
+    }
+    return false;
   }
 
   function currentAuthState() {
@@ -888,17 +1107,35 @@
   }
 
   function initPricing() {
-    const buttons = document.querySelectorAll('[data-checkout-plan]');
+    const section = document.querySelector('[data-pricing]');
+    if (!section) return;
+
+    const buttons = section.querySelectorAll('[data-checkout-plan]');
     if (!buttons.length) return;
+
+    const feedback = section.querySelector('[data-plan-feedback]');
+    syncPlanStatus({ silent: true });
 
     buttons.forEach((button) => {
       if (button.dataset.initialised === 'true') return;
       button.dataset.initialised = 'true';
       button.addEventListener('click', async () => {
-        const planId = button.closest('.pricing-card')?.dataset.plan;
+        const card = button.closest('[data-plan-card]');
+        const planId = card?.dataset.plan;
         if (!planId) return;
-        console.info('[Aserras] Checkout flow initialised.', { planId });
-        window.location.href = `/checkout?plan=${encodeURIComponent(planId)}`;
+
+        if (!currentAuthToken()) {
+          setFeedback(feedback, 'Sign in to activate this plan.');
+          ensureAuthenticated({ redirectTo: '/login' });
+          return;
+        }
+
+        const planName = card?.querySelector('[data-plan-name]')?.textContent?.trim();
+        await startCheckout('card', planId, feedback, {
+          source: 'pricing',
+          planLabel: planName,
+          fallbackRedirect: `/checkout?plan=${encodeURIComponent(planId)}`,
+        });
       });
     });
   }
@@ -1087,10 +1324,13 @@
     hydrateHistory();
   }
 
-  async function startCheckout(method, planId, feedback) {
-    if (!method) return;
+  async function startCheckout(method, planId, feedback, options = {}) {
+    if (!method) return false;
+
+    const planLabel = options.planLabel || formatLabelFromKey(planId || 'selected');
     const label = formatLabelFromKey(method);
-    const planLabel = formatLabelFromKey(planId || 'selected');
+    const fallbackRedirect = options.fallbackRedirect;
+
     setFeedback(
       feedback,
       `${label} checkout is preparing your ${planLabel} upgrade. You'll receive confirmation shortly.`,
@@ -1100,18 +1340,48 @@
       const payload = {
         planId,
         token: method,
+        method,
+        provider: method,
       };
-      const response = await api.request(resolveEndpoint('paymentCreate', '/payment/create'), {
+      const response = await api.request(resolveEndpoint('paymentCheckout', '/payment/checkout'), {
         method: 'POST',
         body: JSON.stringify(payload),
         auth: true,
       });
-      setFeedback(
-        feedback,
+
+      const message =
         response.message ||
-          `${label} checkout is preparing your ${planLabel} upgrade. Confirmation will arrive soon.`,
-      );
-      console.info('[Aserras] Checkout method selected.', { method, planId, reference: response.reference });
+        `${label} checkout is preparing your ${planLabel} upgrade. Confirmation will arrive soon.`;
+      setFeedback(feedback, message);
+
+      const checkoutUrl =
+        response.checkoutUrl || response.url || response.redirectUrl || response.redirect;
+      if (checkoutUrl && options.openWindow !== false) {
+        const popup = window.open(checkoutUrl, '_blank', 'noopener,noreferrer');
+        if (!popup) {
+          window.location.href = checkoutUrl;
+        }
+      }
+
+      const normalisedPlanId =
+        normaliseKey(response.planId || response.plan_id || response.plan?.id || planId) || 'free';
+
+      const details = extractPlanDetails(response);
+      if (details) {
+        applyPlanStatus(details);
+      } else {
+        await syncPlanStatus({ silent: true });
+      }
+
+      await pollPlanActivation(normalisedPlanId, { feedback, planLabel });
+
+      console.info('[Aserras] Checkout method selected.', {
+        method,
+        planId,
+        reference: response.reference,
+        source: options.source || 'checkout',
+      });
+      return true;
     } catch (error) {
       console.error('[Aserras] Checkout request failed.', error);
       setFeedback(
@@ -1119,21 +1389,33 @@
         error?.message || 'We could not start the checkout flow. Please try another method.',
         true,
       );
+      if (fallbackRedirect) {
+        window.location.href = fallbackRedirect;
+      }
+      return false;
     }
   }
 
   function initCheckout() {
     const section = document.querySelector('[data-checkout]');
     if (!section) return;
+    if (!ensureAuthenticated()) {
+      return;
+    }
     const planId = section.dataset.planId || 'pro';
     const feedback = section.querySelector('.form-feedback');
+
+    syncPlanStatus({ silent: true });
 
     section.querySelectorAll('[data-payment-method]').forEach((button) => {
       if (button.dataset.initialised === 'true') return;
       if (button.hidden) return;
       button.dataset.initialised = 'true';
       button.addEventListener('click', async () => {
-        await startCheckout(button.dataset.paymentMethod, planId, feedback);
+        await startCheckout(button.dataset.paymentMethod, planId, feedback, {
+          source: 'checkout',
+          planLabel: section.querySelector('[data-plan-name]')?.textContent?.trim(),
+        });
       });
     });
   }
@@ -1150,6 +1432,8 @@
     };
     const historyList = document.querySelector('#history-list');
     const actions = document.querySelectorAll('[data-dashboard-action]');
+
+    syncPlanStatus({ silent: true });
 
     function updateStats(messages) {
       const total = Array.isArray(messages) ? messages.length : 0;
@@ -1211,6 +1495,7 @@
         const messages = await fetchHistory();
         updateStats(messages);
         renderHistory(messages);
+        await syncPlanStatus({ silent: true });
         console.info('[Aserras] Dashboard history synced.', { total: messages.length });
       } catch (error) {
         console.error('[Aserras] Dashboard refresh failed.', error);
@@ -1241,8 +1526,8 @@
           window.location.href = '/chat';
           break;
         case 'upgrade':
-          console.info('[Aserras] Redirecting to pricing for plan upgrades.');
-          window.location.href = '/pricing';
+          console.info('[Aserras] Redirecting to upgrade options.');
+          window.location.href = '/upgrade';
           break;
         case 'signout':
           console.info('[Aserras] Signing out and returning to the login screen.');
@@ -1299,6 +1584,7 @@
     applyConfigMetadata,
     applyFeatureFlags,
     syncAuthUI,
+    syncPlanStatus,
     setAuthState(isAuthenticated, options = {}) {
       const next = Boolean(isAuthenticated);
       const token = options?.token;

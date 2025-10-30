@@ -16,11 +16,13 @@ class Settings(BaseSettings):
     brain_api_auth_login: str | None = None
     brain_api_auth_signup: str | None = None
     brain_api_payment_create: str | None = None
+    brain_api_payment_checkout: str | None = None
     brain_api_chat_send: str | None = None
     brain_api_user_history: str | None = None
     brain_api_content_policies: str | None = None
     brain_api_pricing: str | None = None
     brain_api_contact_send: str | None = None
+    brain_api_account_status: str | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="ASERRAS_",
@@ -39,11 +41,13 @@ class Settings(BaseSettings):
             "brain_api_auth_login": "/auth/login",
             "brain_api_auth_signup": "/auth/signup",
             "brain_api_payment_create": "/payment/create",
+            "brain_api_payment_checkout": "/payment/checkout",
             "brain_api_chat_send": "/chat/send",
             "brain_api_user_history": "/chat/history",
             "brain_api_content_policies": "/content/policies",
             "brain_api_pricing": "/pricing",
             "brain_api_contact_send": "/contact/send",
+            "brain_api_account_status": "/account/status",
         }
 
         for field_name, suffix in endpoint_suffixes.items():
