@@ -33,6 +33,19 @@
   const PLAN_STATUS_ACTIVE = 'active';
   const PLAN_STATUS_POLL_ATTEMPTS = 8;
   const PLAN_STATUS_POLL_DELAY = 5000;
+  const PAYMENT_ERROR_MESSAGE = "⚠️ We’re having trouble reaching Core. Please try again later.";
+  const PAYMENT_SUCCESS_MESSAGE = "Payment successful — you’re now on the Pro Plan!";
+  let hasAnnouncedProUpgrade = false;
+  let checkoutSessionId = '';
+
+  if (typeof window !== 'undefined') {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      checkoutSessionId = (params.get('session_id') || '').trim();
+    } catch (error) {
+      checkoutSessionId = '';
+    }
+  }
 
   function ensureToastContainer() {
     if (!document || !document.body) {
@@ -241,6 +254,25 @@
     return fallback;
   }
 
+  function appendQueryParams(url, params) {
+    if (!params || typeof params !== 'object') {
+      return url;
+    }
+
+    const entries = Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== '');
+    if (!entries.length) {
+      return url;
+    }
+
+    const [base, query = ''] = String(url || '').split('?');
+    const search = new URLSearchParams(query);
+    entries.forEach(([key, value]) => {
+      search.set(key, value);
+    });
+    const nextQuery = search.toString();
+    return nextQuery ? `${base}?${nextQuery}` : base;
+  }
+
   const api = {
     async request(path, options = {}) {
       const { auth = false, ...fetchOptions } = options;
@@ -357,7 +389,21 @@
   }
 
   function extractPlanDetails(payload) {
-    if (!payload || typeof payload !== 'object') {
+    if (!payload) {
+      return null;
+    }
+
+    if (typeof payload === 'string') {
+      const planId = normaliseKey(payload) || 'free';
+      const planName = planId ? formatLabelFromKey(planId) : 'Free';
+      return {
+        id: planId || 'free',
+        name: planName || 'Free',
+        status: planId === 'free' ? 'inactive' : PLAN_STATUS_ACTIVE,
+      };
+    }
+
+    if (typeof payload !== 'object') {
       return null;
     }
 
@@ -373,6 +419,12 @@
 
     let source = null;
     for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return extractPlanDetails({
+          id: candidate,
+          status: payload.plan_status || payload.planStatus || payload.status,
+        });
+      }
       if (candidate && typeof candidate === 'object') {
         source = candidate;
         break;
@@ -404,6 +456,9 @@
       source.phase ||
       (source.active === true ? PLAN_STATUS_ACTIVE : '') ||
       (source.active === false ? 'inactive' : '') ||
+      payload.plan_status ||
+      payload.planStatus ||
+      payload.subscription_status ||
       payload.status;
 
     const planId = normaliseKey(idCandidate || nameCandidate || planState.id || 'free');
@@ -440,6 +495,22 @@
     document.querySelectorAll('[data-plan-status-label]').forEach((node) => {
       node.textContent = humanStatus;
     });
+
+    document.querySelectorAll('[data-plan-summary]').forEach((node) => {
+      node.textContent = `Current plan: ${planState.name}`;
+    });
+
+    const successNotice = document.querySelector('[data-plan-success]');
+    if (successNotice) {
+      const isPro = planState.id === 'pro' && planState.status === PLAN_STATUS_ACTIVE;
+      successNotice.hidden = !isPro;
+      successNotice.setAttribute('aria-hidden', isPro ? 'false' : 'true');
+      if (isPro) {
+        successNotice.textContent = PAYMENT_SUCCESS_MESSAGE;
+      } else if (!successNotice.dataset.persistentMessage) {
+        successNotice.textContent = '';
+      }
+    }
 
     document.querySelectorAll('[data-plan-status-banner]').forEach((node) => {
       node.hidden = planState.status !== PLAN_STATUS_ACTIVE;
@@ -497,32 +568,49 @@
     return { ...planState };
   }
 
-  async function syncPlanStatus({ silent = false } = {}) {
-    if (!currentAuthToken()) {
-      if (!silent) {
-        applyPlanStatus({ id: 'free', name: 'Free', status: 'inactive' });
-      }
-      return null;
-    }
-
+  async function syncPlanStatus({ silent = false, sessionId } = {}) {
     try {
-      const response = await api.request(resolveEndpoint('accountStatus', '/account/status'), {
-        auth: true,
-      });
+      const endpoint = resolveEndpoint('accountStatus', '/account/status');
+      const target = appendQueryParams(endpoint, { session_id: sessionId || checkoutSessionId });
+      const response = await api.request(target);
       const details = extractPlanDetails(response);
       if (details) {
-        return applyPlanStatus(details);
+        const applied = applyPlanStatus({ ...details, status: details.status || response?.status });
+        const isProActive =
+          applied &&
+          normaliseKey(applied.id) === 'pro' &&
+          normaliseKey(applied.status) === PLAN_STATUS_ACTIVE;
+
+        if (isProActive && (sessionId || checkoutSessionId) && !hasAnnouncedProUpgrade) {
+          hasAnnouncedProUpgrade = true;
+          showToast(`✅ ${PAYMENT_SUCCESS_MESSAGE}`, {
+            variant: 'success',
+            timeout: 6000,
+          });
+
+          if (typeof window !== 'undefined' && window.history?.replaceState) {
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.delete('session_id');
+              window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+              checkoutSessionId = '';
+            } catch (error) {
+              /* no-op */
+            }
+          }
+        }
+
+        return applied;
+      }
+
+      if (!silent) {
+        showToast(PAYMENT_ERROR_MESSAGE);
       }
       return null;
     } catch (error) {
       if (!silent) {
         console.error('[Aserras] Failed to sync plan status.', error);
-        if (error?.message) {
-          showToast(error.message);
-        }
-      }
-      if (error?.message === SESSION_EXPIRED_MESSAGE) {
-        ensureAuthenticated();
+        showToast(error?.message || PAYMENT_ERROR_MESSAGE);
       }
       return null;
     }
@@ -1114,27 +1202,21 @@
     if (!buttons.length) return;
 
     const feedback = section.querySelector('[data-plan-feedback]');
-    syncPlanStatus({ silent: true });
+    syncPlanStatus({ silent: true, sessionId: checkoutSessionId });
 
     buttons.forEach((button) => {
       if (button.dataset.initialised === 'true') return;
       button.dataset.initialised = 'true';
       button.addEventListener('click', async () => {
+        if (button.disabled) return;
         const card = button.closest('[data-plan-card]');
         const planId = card?.dataset.plan;
         if (!planId) return;
-
-        if (!currentAuthToken()) {
-          setFeedback(feedback, 'Sign in to activate this plan.');
-          ensureAuthenticated({ redirectTo: '/login' });
-          return;
-        }
-
         const planName = card?.querySelector('[data-plan-name]')?.textContent?.trim();
         await startCheckout('card', planId, feedback, {
           source: 'pricing',
           planLabel: planName,
-          fallbackRedirect: `/checkout?plan=${encodeURIComponent(planId)}`,
+          button,
         });
       });
     });
@@ -1327,94 +1409,95 @@
   async function startCheckout(method, planId, feedback, options = {}) {
     if (!method) return false;
 
-    const planLabel = options.planLabel || formatLabelFromKey(planId || 'selected');
-    const label = formatLabelFromKey(method);
-    const fallbackRedirect = options.fallbackRedirect;
+    const planKey = normaliseKey(planId) || 'pro';
+    const planLabel = options.planLabel || formatLabelFromKey(planKey || 'selected');
+    const button = options.button && typeof options.button === 'object' ? options.button : null;
+    const originalLabel = button?.textContent || '';
+    let succeeded = false;
 
-    setFeedback(
-      feedback,
-      `${label} checkout is preparing your ${planLabel} upgrade. You'll receive confirmation shortly.`,
-    );
+    if (button) {
+      button.disabled = true;
+      button.dataset.loading = 'true';
+      button.textContent = 'Preparing secure checkout…';
+    }
+
+    if (feedback) {
+      setFeedback(
+        feedback,
+        `Redirecting you to secure checkout for the ${planLabel} plan…`,
+      );
+    }
 
     try {
-      const payload = {
-        planId,
-        token: method,
-        method,
-        provider: method,
-      };
-      const response = await api.request(resolveEndpoint('paymentCheckout', '/payment/checkout'), {
-        method: 'POST',
-        body: JSON.stringify(payload),
-        auth: true,
-      });
-
-      const message =
-        response.message ||
-        `${label} checkout is preparing your ${planLabel} upgrade. Confirmation will arrive soon.`;
-      setFeedback(feedback, message);
+      const response = await api.request(
+        resolveEndpoint('paymentCheckout', '/payments/create-checkout-session'),
+        {
+          method: 'POST',
+          body: JSON.stringify({ plan: planKey || 'pro' }),
+        },
+      );
 
       const checkoutUrl =
-        response.checkoutUrl || response.url || response.redirectUrl || response.redirect;
-      if (checkoutUrl && options.openWindow !== false) {
-        const popup = window.open(checkoutUrl, '_blank', 'noopener,noreferrer');
-        if (!popup) {
-          window.location.href = checkoutUrl;
-        }
+        response?.url || response?.checkoutUrl || response?.redirectUrl || response?.redirect;
+
+      if (!checkoutUrl) {
+        throw new Error('Checkout session did not include a redirect URL.');
       }
 
-      const normalisedPlanId =
-        normaliseKey(response.planId || response.plan_id || response.plan?.id || planId) || 'free';
-
-      const details = extractPlanDetails(response);
-      if (details) {
-        applyPlanStatus(details);
-      } else {
-        await syncPlanStatus({ silent: true });
+      succeeded = true;
+      if (feedback) {
+        setFeedback(feedback, `Opening secure checkout for the ${planLabel} plan…`);
       }
 
-      await pollPlanActivation(normalisedPlanId, { feedback, planLabel });
-
-      console.info('[Aserras] Checkout method selected.', {
+      console.info('[Aserras] Checkout session ready.', {
         method,
-        planId,
-        reference: response.reference,
+        plan: planKey,
         source: options.source || 'checkout',
       });
+
+      window.location.href = checkoutUrl;
       return true;
     } catch (error) {
       console.error('[Aserras] Checkout request failed.', error);
-      setFeedback(
-        feedback,
-        error?.message || 'We could not start the checkout flow. Please try another method.',
-        true,
-      );
-      if (fallbackRedirect) {
-        window.location.href = fallbackRedirect;
+      if (feedback) {
+        setFeedback(feedback, PAYMENT_ERROR_MESSAGE, true);
+      } else {
+        showToast(PAYMENT_ERROR_MESSAGE);
       }
       return false;
+    } finally {
+      if (!succeeded && button) {
+        button.disabled = false;
+        button.dataset.loading = 'false';
+        button.textContent = originalLabel || button.textContent;
+      }
     }
   }
 
   function initCheckout() {
     const section = document.querySelector('[data-checkout]');
     if (!section) return;
-    if (!ensureAuthenticated()) {
-      return;
-    }
     const planId = section.dataset.planId || 'pro';
     const feedback = section.querySelector('.form-feedback');
+    const planLabel = section.querySelector('[data-plan-name]')?.textContent?.trim();
 
-    syncPlanStatus({ silent: true });
+    syncPlanStatus({ silent: true, sessionId: checkoutSessionId });
 
     section.querySelectorAll('[data-payment-method]').forEach((button) => {
       if (button.dataset.initialised === 'true') return;
-      if (button.hidden) return;
+      if (button.hidden || button.disabled) return;
       button.dataset.initialised = 'true';
       button.addEventListener('click', async () => {
+        if (button.disabled) return;
+
+        section.querySelectorAll('[data-payment-method]').forEach((candidate) => {
+          candidate.classList.toggle('is-selected', candidate === button);
+        });
+
         await startCheckout(button.dataset.paymentMethod, planId, feedback, {
           source: 'checkout',
-          planLabel: section.querySelector('[data-plan-name]')?.textContent?.trim(),
+          planLabel,
+          button,
         });
       });
     });
@@ -1432,8 +1515,9 @@
     };
     const historyList = document.querySelector('#history-list');
     const actions = document.querySelectorAll('[data-dashboard-action]');
+    const planFeedback = document.querySelector('[data-dashboard-plan-feedback]');
 
-    syncPlanStatus({ silent: true });
+    syncPlanStatus({ silent: true, sessionId: checkoutSessionId });
 
     function updateStats(messages) {
       const total = Array.isArray(messages) ? messages.length : 0;
@@ -1495,7 +1579,7 @@
         const messages = await fetchHistory();
         updateStats(messages);
         renderHistory(messages);
-        await syncPlanStatus({ silent: true });
+        await syncPlanStatus({ silent: true, sessionId: checkoutSessionId });
         console.info('[Aserras] Dashboard history synced.', { total: messages.length });
       } catch (error) {
         console.error('[Aserras] Dashboard refresh failed.', error);
@@ -1526,8 +1610,11 @@
           window.location.href = '/chat';
           break;
         case 'upgrade':
-          console.info('[Aserras] Redirecting to upgrade options.');
-          window.location.href = '/upgrade';
+          await startCheckout('card', 'pro', planFeedback, {
+            source: 'dashboard',
+            planLabel: 'Pro',
+            button: element,
+          });
           break;
         case 'signout':
           console.info('[Aserras] Signing out and returning to the login screen.');

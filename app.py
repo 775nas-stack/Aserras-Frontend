@@ -166,7 +166,12 @@ def create_app(settings: Settings) -> FastAPI:
     allowed_origins = settings.allowed_origins
     allow_credentials = True
     if not allowed_origins:
-        allowed_origins = ["*"]
+        allowed_origins = [
+            "https://aserras.com",
+            "https://core.aserras.com",
+        ]
+
+    if "*" in allowed_origins:
         allow_credentials = False
 
     app.add_middleware(

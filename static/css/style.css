@@ -939,6 +939,8 @@ body.theme-light .summary-card {
   color: var(--text);
   font-weight: 600;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  gap: 0.75rem;
+  cursor: pointer;
 }
 
 .payment-method:hover,
@@ -946,6 +948,33 @@ body.theme-light .summary-card {
   transform: translateY(-2px);
   border-color: var(--primary);
   box-shadow: 0 20px 36px rgba(0, 225, 154, 0.15);
+}
+
+.payment-method.is-disabled,
+.payment-method[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  border-style: dashed;
+}
+
+.payment-method.is-selected {
+  border-color: var(--primary);
+  box-shadow: 0 18px 40px rgba(0, 225, 154, 0.2);
+}
+
+.payment-method .method-logo {
+  width: 88px;
+  height: auto;
+  max-height: 32px;
+  object-fit: contain;
+  transition: opacity 0.2s ease;
+}
+
+.payment-method.is-disabled .method-logo,
+.payment-method[disabled] .method-logo {
+  filter: grayscale(1);
+  opacity: 0.6;
 }
 
 body.theme-light .payment-method {
@@ -975,6 +1004,28 @@ body.theme-light .payment-method {
   display: flex;
   justify-content: center;
   margin-top: 3rem;
+}
+
+.plan-current {
+  margin: 0.25rem 0 0.75rem;
+  font-weight: 600;
+}
+
+.plan-success-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.18);
+  color: rgba(16, 185, 129, 0.95);
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.plan-success-badge::before {
+  content: '✅';
 }
 
 .contact-card {

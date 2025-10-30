@@ -1,0 +1,15 @@
+<svg width="120" height="36" viewBox="0 0 120 36" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Apple Pay logo">
+  <title>Apple Pay</title>
+  <g fill="none" fill-rule="evenodd">
+    <rect width="120" height="36" rx="6" fill="none" />
+    <path
+      d="M17.6 9.8c1.2-1.4 2-3.3 1.8-5.2-1.8.1-3.8 1.2-5 2.6-1.1 1.3-2.1 3.2-1.8 5 1.9.1 3.9-1 5-2.4z"
+      fill="#9CA3AF"
+    />
+    <path
+      d="M21.9 15.1c-1-1.4-2.4-2.1-3.8-2.1-1.8 0-2.6.9-3.8.9-1.3 0-2.3-.9-3.8-.9-1.5 0-3 1-3.9 2.5-1.4 2.3-.6 5.7 1.1 8.1.8 1.2 1.9 2.5 3.3 2.5 1.3 0 1.7-.8 3.4-.8 1.7 0 1.9.8 3.4.8 1.5 0 2.4-1.2 3.2-2.4.6-.9.9-1.6 1.1-2.4-2.9-1.1-3.4-5.3-1.2-7.3z"
+      fill="#9CA3AF"
+    />
+    <text x="36" y="22" font-family="'Inter', 'Segoe UI', Arial, sans-serif" font-size="16" font-weight="600" letter-spacing=".01em" fill="#9CA3AF">Apple Pay</text>
+  </g>
+</svg>
