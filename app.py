@@ -82,10 +82,10 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for local tests witho
 
 from config import Settings, get_settings
 
-load_dotenv()
 
+LOGGER = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent
-
+load_dotenv(BASE_DIR / ".env")
 
 def _load_payments_router():
     """Dynamically import the payments router if it exists."""
@@ -197,12 +197,17 @@ def _timestamp(hours: int = 0) -> str:
 def create_app(settings: Settings) -> FastAPI:
     """Application factory to build the FastAPI instance."""
 
-    app = FastAPI(title="Aserras Web")
+      app = FastAPI(title=settings.app_name or "Aserras Web", debug=settings.debug)
 
-    stripe.api_key = settings.stripe_secret_key.get_secret_value()
-
-    print("Stripe keys loaded:", bool(settings.stripe_secret_key))
-
+    if settings.has_stripe_secret and settings.stripe_secret_key is not None:
+        stripe.api_key = settings.stripe_secret_key.get_secret_value()
+        LOGGER.info("Stripe secret key loaded; Stripe integration enabled.")
+    else:
+        stripe.api_key = None
+        LOGGER.warning(
+            "Stripe secret key is not configured; Stripe-powered features are disabled."
+        )
+        
     allowed_origins = settings.allowed_origins
     allow_credentials = True
     if not allowed_origins:
@@ -615,9 +620,16 @@ def create_app(settings: Settings) -> FastAPI:
         return {
             "brain": {"configured": bool(settings.brain_base)},
             "core": {"configured": bool(settings.service_token)},
-            "frontend": {"ok": True},
+                 "frontend": {
+                "ok": True,
+                "status": "✅",
+                "host": settings.host,
+                "port": settings.port,
+                "debug": settings.debug,
+            },
             "stripe": {"configured": settings.has_stripe_secret},
             "stripe_secret_present": settings.has_stripe_secret,
+            "frontend_status": "✅",
         }
 
     @app.post("/api/payment/create")
